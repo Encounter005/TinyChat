@@ -1,0 +1,3 @@
+#user_label #password_label {
+    color:white;
+}
