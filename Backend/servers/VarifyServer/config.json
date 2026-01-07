@@ -1,0 +1,12 @@
+{
+  "email":{
+    "user":"encounter005@163.com",
+    "pass":"PFhcJ8CwHN8PuGL6"
+  },
+
+  "redis": {
+    "host": "127.0.0.1",
+    "port": "6379",
+    "passwd":"cxy"
+  }
+}

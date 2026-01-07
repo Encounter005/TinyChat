@@ -1,0 +1,21 @@
+{
+  "name": "varifyserver",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
+    "nodemailer": "^7.0.12",
+    "uuid": "^13.0.0"
+  },
+  "scripts": {
+    "serve": "node server.js"
+  }
+}

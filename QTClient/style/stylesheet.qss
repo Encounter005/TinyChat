@@ -1,3 +1,11 @@
 #user_label #password_label {
     color:white;
 }
+
+#error_tips[state='normal'] {
+    color: green;
+}
+
+#error_tips[state='error'] {
+    color: red;
+}
