@@ -1,1 +1,1 @@
-[[https://www.bilibili.com/video/BV1k2421K7ZB/?spm_id_from=333.1387.0.0][从恋恋风辰]]那学习的分布式聊天系统
+从[[https://www.bilibili.com/video/BV1k2421K7ZB/?spm_id_from=333.1387.0.0][恋恋风辰]]那学习的分布式聊天系统
