@@ -3,5 +3,57 @@
         <file>img/head.png</file>
         <file>img/favicon.ico</file>
         <file>style/stylesheet.qss</file>
+        <file>img/voice_chat_press.png</file>
+        <file>img/voice_chat_normal.png</file>
+        <file>img/voice_chat_hover.png</file>
+        <file>img/visible.png</file>
+        <file>img/visible_hover.png</file>
+        <file>img/video_chat_press.png</file>
+        <file>img/video_chat_normal.png</file>
+        <file>img/video_chat_hover.png</file>
+        <file>img/unvisible.png</file>
+        <file>img/unvisible_hover.png</file>
+        <file>img/tipclose.png</file>
+        <file>img/smile.png</file>
+        <file>img/smile_press.png</file>
+        <file>img/smile_hover.png</file>
+        <file>img/settings.png</file>
+        <file>img/settings_select_press.png</file>
+        <file>img/settings_select_hover.png</file>
+        <file>img/settings_press.png</file>
+        <file>img/settings_hover.png</file>
+        <file>img/search.png</file>
+        <file>img/right_tip.png</file>
+        <file>img/red_point.png</file>
+        <file>img/msg_chat_press.png</file>
+        <file>img/msg_chat_normal.png</file>
+        <file>img/msg_chat_hover.png</file>
+        <file>img/male.png</file>
+        <file>img/loading.gif</file>
+        <file>img/ice.png</file>
+        <file>img/head_5.jpg</file>
+        <file>img/head_4.jpg</file>
+        <file>img/head_3.jpg</file>
+        <file>img/head_2.jpg</file>
+        <file>img/head_1.jpg</file>
+        <file>img/filedir.png</file>
+        <file>img/filedir_press.png</file>
+        <file>img/filedir_hover.png</file>
+        <file>img/female.png</file>
+        <file>img/contact_list.png</file>
+        <file>img/contact_list_press.png</file>
+        <file>img/contact_list_hover.png</file>
+        <file>img/close_transparent.png</file>
+        <file>img/close_search.png</file>
+        <file>img/chat_icon.png</file>
+        <file>img/chat_icon_select_press.png</file>
+        <file>img/chat_icon_select_hover.png</file>
+        <file>img/chat_icon_press.png</file>
+        <file>img/chat_icon_hover.png</file>
+        <file>img/arowdown.png</file>
+        <file>img/addtip.png</file>
+        <file>img/add_friend.png</file>
+        <file>img/add_friend_normal.png</file>
+        <file>img/add_friend_hover.png</file>
     </qresource>
 </RCC>

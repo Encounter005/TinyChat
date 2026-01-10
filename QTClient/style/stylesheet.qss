@@ -9,3 +9,28 @@
 #error_tips[state='error'] {
     color: red;
 }
+
+#pass_visible[state='unvisible']{
+   border-image: url(:/img/unvisible.png);
+}
+#pass_visible[state='unvisible_hover']{
+   border-image: url(:/img/unvisible_hover.png);
+}
+#pass_visible[state='visible']{
+   border-image: url(:/img/visible.png);
+}
+#pass_visible[state='visible_hover']{
+   border-image: url(:/img/visible_hover.png);
+}
+#confirm_visible[state='unvisible']{
+   border-image: url(:/img/unvisible.png);
+}
+#confirm_visible[state='unvisible_hover']{
+   border-image: url(:/img/unvisible_hover.png);
+}
+#confirm_visible[state='visible']{
+   border-image: url(:/img/visible.png);
+}
+#confirm_visible[state='visible_hover']{
+   border-image: url(:/img/visible_hover.png);
+}

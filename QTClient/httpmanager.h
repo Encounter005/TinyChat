@@ -31,6 +31,7 @@ signals:
     //通知其他模块网络初始化完成
     void sig_http_finish(ReqId id, QString res, ErrorCodes error_code, Modules mod);
     void sig_reg_mod_finish(ReqId id, QString res, ErrorCodes error_code);
+    void sig_reset_mod_finish(ReqId id, QString res, ErrorCodes error_code);
 };
 
 
