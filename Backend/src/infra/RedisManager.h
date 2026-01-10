@@ -2,7 +2,7 @@
 #define REDISMANAGER_H_
 
 #include "RedisConPool.h"
-#include "singleton.h"
+#include "common/singleton.h"
 #include <hiredis/hiredis.h>
 #include <memory>
 #include <spdlog/spdlog.h>

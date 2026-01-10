@@ -1,12 +1,17 @@
 {
-  "email":{
-    "user":"encounter005@163.com",
-    "pass":"PFhcJ8CwHN8PuGL6"
+  "email": {
+    "user": "encounter005@163.com",
+    "pass": "PFhcJ8CwHN8PuGL6"
   },
-
   "redis": {
     "host": "127.0.0.1",
     "port": "6379",
-    "passwd":"cxy"
+    "passwd": "cxy"
+  },
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": "3306",
+    "user": "encounter005",
+    "passwd": "cxy"
   }
 }

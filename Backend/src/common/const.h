@@ -13,22 +13,26 @@
 #include <json/value.h>
 #include <json/json.h>
 #include <json/reader.h>
-#include "ConfigManager.h"
-#include "LogManager.h"
+#include "infra/ConfigManager.h"
+#include "infra/LogManager.h"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
 using tcp = boost::asio::ip::tcp;
 
+class ConfigManager;
 
 enum ErrorCodes {
   SUCCESS = 0,
   ERROR_JSON = 1001, // json parse error
-  RPC_FAILED = 1002 // rpc request error
+  RPC_FAILED = 1002, // rpc request error
+  VarifyExpired = 1003, // varify_code expired
+  VarifyCodeError = 1004,
+  UserExist = 1005,
+  PasswdError = 1006,
+  EmailNotMatch = 1007,
 };
 
-class ConfigManager;
-extern ConfigManager globalConfig;
 
 #endif // CONST_H_

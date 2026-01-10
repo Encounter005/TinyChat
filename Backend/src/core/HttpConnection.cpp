@@ -1,6 +1,7 @@
 #include "HttpConnection.h"
-#include "LogManager.h"
+#include "infra/LogManager.h"
 #include "LogicSystem.h"
+#include <boost/beast/http/dynamic_body_fwd.hpp>
 
 HttpConnection::HttpConnection(tcp::socket socket)
     : _socket(std::move(socket)) {}

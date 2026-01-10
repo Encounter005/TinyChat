@@ -1,7 +1,7 @@
 #ifndef LOGMANAGER_H_
 #define LOGMANAGER_H_
 
-#include "singleton.h"
+#include "common/singleton.h"
 #include <memory>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>

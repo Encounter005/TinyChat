@@ -1,7 +1,7 @@
 #include "CServer.h"
-#include "AsioIOServicePool.h"
-#include "HttpConnection.h"
-#include "LogManager.h"
+#include "infra/AsioIOServicePool.h"
+#include "core/HttpConnection.h"
+#include "infra/LogManager.h"
 #include <memory>
 
 CServer::CServer(boost::asio::io_context &ioc, unsigned short &port)

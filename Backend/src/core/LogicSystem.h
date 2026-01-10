@@ -1,7 +1,7 @@
 #ifndef LOGICSYSTEM_H_
 #define LOGICSYSTEM_H_
-#include "const.h"
-#include "singleton.h"
+#include "common/const.h"
+#include "common/singleton.h"
 #include "message.grpc.pb.h"
 #include "message.pb.h"
 #include <grpcpp/client_context.h>
@@ -24,6 +24,7 @@ public:
     bool HandlePost(const std::string&, std::shared_ptr<HttpConnection>);
     void RegGet(const std::string&, HttpHandler);
     void RegPost(const std::string&, HttpHandler);
+
 
 private:
     LogicSystem();

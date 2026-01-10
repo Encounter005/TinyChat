@@ -2,7 +2,7 @@
 #define REDISCONPOOL_H_
 #include <atomic>
 #include <condition_variable>
-#include "const.h"
+#include "common/const.h"
 #include <queue>
 #include <mutex>
 #include <hiredis/hiredis.h>

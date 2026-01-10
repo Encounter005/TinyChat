@@ -1,8 +1,9 @@
 #ifndef CONFIGMANAGER_H_
 #define CONFIGMANAGER_H_
 
-#include "const.h"
-#include "singleton.h"
+#include "common/const.h"
+#include "common/singleton.h"
+
 struct SectionInfo {
     SectionInfo()  = default;
     ~SectionInfo() = default;
@@ -64,6 +65,5 @@ private:
     ConfigManager();
     std::map<std::string, SectionInfo> _config_map;
 };
-
 
 #endif   // CONFIGMANAGER_H_

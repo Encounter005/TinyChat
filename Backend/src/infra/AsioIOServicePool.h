@@ -1,7 +1,7 @@
 #ifndef ASIOIOSERVICEPOOL_H_
 #define ASIOIOSERVICEPOOL_H_
 
-#include "singleton.h"
+#include "common/singleton.h"
 #include <boost/asio.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/io_context.hpp>
@@ -26,7 +26,7 @@ public:
     boost::asio::io_context& GetIOService();
 
 private:
-    AsioIOServicePool(std::size_t size = 2);
+    AsioIOServicePool(std::size_t size = 4);
     std::vector<IOService>   _ioService;
     std::vector<WorkPtr>     _works;
     std::vector<std::thread> _threads;

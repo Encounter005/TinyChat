@@ -1,9 +1,9 @@
-#include "ConfigManager.h"
-#include "RPConPool.h"
-#include "const.h"
+#include "infra/ConfigManager.h"
+#include "infra/RPConPool.h"
+#include "common/const.h"
 #include "message.grpc.pb.h"
 #include "message.pb.h"
-#include "singleton.h"
+#include "common/singleton.h"
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
 #include <grpcpp/grpcpp.h>

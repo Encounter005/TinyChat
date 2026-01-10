@@ -1,13 +1,21 @@
 #ifndef HTTPCONNECTION_H_
 #define HTTPCONNECTION_H_
 
-#include "const.h"
+#include "common/const.h"
+#include <boost/beast/http/dynamic_body_fwd.hpp>
+#include <boost/beast/http/message_fwd.hpp>
 
 class HttpConnection : public std::enable_shared_from_this<HttpConnection> {
 public:
-    friend class LogicSystem;
     explicit HttpConnection(tcp::socket socket);
-    tcp::socket& GetSocket();
+    tcp::socket&                             GetSocket();
+    const http::request<http::dynamic_body>& GetRequest() const {
+        return _request;
+    }
+    http::response<http::dynamic_body>& GetResponse() { return _response; }
+    const std::map<std::string, std::string>& GetParams() const {
+        return _get_params;
+    }
     // ~HttpConnection() = default;
     ~HttpConnection() { LOG_INFO("http connection closed"); }
     void Start();

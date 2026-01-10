@@ -36,9 +36,14 @@ bool RedisManager::Get(const std::string& key, std::string& value) {
         return false;
     }
 
+
+
     if (reply->type != REDIS_REPLY_STRING) {
         LOG_ERROR(
-            "[RedisManager] Get failed: Key: {} not found or wrong type", key);
+            "[RedisManager] Wrong type for Key: {}. Expected String, but got "
+            "type {}",
+            key,
+            reply->type);
         freeReplyObject(reply);
         return false;
     }

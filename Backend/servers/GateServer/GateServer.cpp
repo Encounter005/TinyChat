@@ -1,5 +1,6 @@
-#include "CServer.h"
-#include "ConfigManager.h"
+#include "core/CServer.h"
+#include "infra/ConfigManager.h"
+#include "infra/LogManager.h"
 #include <cstdlib>
 
 int main() {
@@ -24,7 +25,7 @@ int main() {
         ioc.run();
 
     } catch (std::exception& e) {
-        std::cerr << "exception is: " << e.what() << std::endl;
+        LOG_ERROR("In GateServer main() exception is: {}", e.what());
         return EXIT_FAILURE;
     }
 

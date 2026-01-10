@@ -1,8 +1,7 @@
 #ifndef CSERVER_H_
 #define CSERVER_H_
 
-#include "const.h"
-#include "HttpConnection.h"
+#include "common/const.h"
 
 class CServer : public std::enable_shared_from_this<CServer> {
 public:

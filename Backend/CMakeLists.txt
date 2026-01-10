@@ -43,14 +43,27 @@ endif()
 #spdlog
 # pkg_check_modules(SPDLOG REQUIRED spdlog)
 find_package(spdlog CONFIG REQUIRED)
+
 # Redis library
 pkg_check_modules(HIREDIS REQUIRED hiredis)
 
-# find_path(HIREDIS_INCLUDE_DIR hiredis/hiredis.h)
-# find_library(HIREDIS_LIBRARY hiredis)
-# add_library(hiredis_lib INTERFACE)
-# target_include_directories(hiredis_lib INTERFACE ${HIREDIS_INCLUDE_DIR})
-# target_link_libraries(hiredis_lib INTERFACE ${HIREDIS_LIBRARY})
+#mysql
+# 1. 寻找头文件路径
+find_path(MYSQL_INCLUDE_DIR mysql_connection.h
+    PATH_SUFFIXES cppconn
+)
+# 2. 寻找库文件
+# 注意：mysqlcppconn 是传统的 JDBC 接口库
+find_library(MYSQL_LIBRARY NAMES mysqlcppconn)
+
+# 3. 打印调试信息（可选，方便你排查 Ninja 报错）
+message(STATUS "MySQL Include Dir: ${MYSQL_INCLUDE_DIR}")
+message(STATUS "MySQL Library: ${MYSQL_LIBRARY}")
+
+# 4. 检查是否找到
+if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
+    message(FATAL_ERROR "MySQL Connector/C++ not found!")
+endif()
 
 # setting source code directory
 add_subdirectory(proto)
