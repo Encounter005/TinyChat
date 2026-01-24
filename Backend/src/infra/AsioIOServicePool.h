@@ -2,6 +2,7 @@
 #define ASIOIOSERVICEPOOL_H_
 
 #include "common/singleton.h"
+#include <atomic>
 #include <boost/asio.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/io_context.hpp>
@@ -26,11 +27,11 @@ public:
     boost::asio::io_context& GetIOService();
 
 private:
-    AsioIOServicePool(std::size_t size = 4);
-    std::vector<IOService>   _ioService;
+    AsioIOServicePool(std::size_t size = std::thread::hardware_concurrency());
+    std::vector<IOService>   _io_services;
     std::vector<WorkPtr>     _works;
     std::vector<std::thread> _threads;
-    std::size_t              _nextIOService;
+    std::atomic_size_t       _nextIOService;
 };
 
 
