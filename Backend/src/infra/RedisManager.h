@@ -19,9 +19,7 @@ public:
             _pool->returnConnection(_context);
         }
     }
-        redisContext* get() {
-            return _context;
-        }
+    redisContext* get() { return _context; }
 
 private:
     RedisConPool* _pool;
@@ -50,9 +48,11 @@ public:
         const char* key, const char* hkey, const char* hvalue,
         std::size_t hvalue_len);
     bool        Del(const std::string& key);
+    bool        HDel(const std::string& hkey, const std::string& field);
     bool        ExistsKey(const std::string& key);
     std::string HGet(const std::string& key, const std::string& hkey);
     void        Close();
+    long long HIncrBy(const std::string& hkey, const std::string& field, long long delta);
 
 private:
     RedisManager();

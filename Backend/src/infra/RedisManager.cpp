@@ -2,6 +2,7 @@
 #include "ConfigManager.h"
 #include "LogManager.h"
 #include "RedisConPool.h"
+#include "hiredis.h"
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -62,7 +63,7 @@ bool RedisManager::Set(const std::string& key, const std::string& value) {
     redisReply* reply = (redisReply*) redisCommand(
         context, "SET %s %s", key.c_str(), value.c_str());
     if (reply == nullptr) {
-        LOG_INFO("[RedisManager] Set failed: key: {}", key);
+        LOG_ERROR("[RedisManager] Set failed: key: {}", key);
         return false;
     }
 
@@ -86,12 +87,15 @@ bool RedisManager::LPush(const std::string& key, const std::string& value) {
 
     redisReply* reply = (redisReply*) redisCommand(
         context, "LPUSH %s %s", key.c_str(), value.c_str());
-    if (reply == nullptr) return false;
+    if (reply == nullptr) {
+        LOG_ERROR("[RedisManager] LPUSH failed: {} << {}", key, value);
+        return false;
+    }
 
     bool ok = (reply->type == REDIS_REPLY_INTEGER && reply->integer > 0);
     freeReplyObject(reply);
 
-    if (ok) LOG_INFO("[RedisManager] LPUSH success: {} << {}", key, value);
+    if (ok) LOG_INFO("[RedisManager] LPUSH success: {} -> {}", key, value);
     return ok;
 }
 
@@ -121,12 +125,15 @@ bool RedisManager::RPush(const std::string& key, const std::string& value) {
 
     redisReply* reply = (redisReply*) redisCommand(
         context, "RPUSH %s %s", key.c_str(), value.c_str());
-    if (reply == nullptr) return false;
+    if (reply == nullptr) {
+        LOG_ERROR("[RedisManager] RPUSH failed: {} -> {}", key, value);
+        return false;
+    }
 
     bool ok = (reply->type == REDIS_REPLY_INTEGER && reply->integer > 0);
     freeReplyObject(reply);
 
-    if (ok) LOG_INFO("[RedisManager] RPUSH success: {} >> {}", key, value);
+    if (ok) LOG_INFO("[RedisManager] RPUSH success: {} -> {}", key, value);
     return ok;
 }
 
@@ -150,14 +157,19 @@ bool RedisManager::RPop(const std::string& key, std::string& value) {
 }
 
 bool RedisManager::HSet(
-    const std::string& key, const std::string& hkey, const std::string& value) {
+    const std::string& hkey, const std::string& key, const std::string& value) {
     RedisConnGuard guard(_pool.get());
     redisContext*  context = guard.get();
     if (!context) return false;
 
     redisReply* reply = (redisReply*) redisCommand(
-        context, "HSET %s %s %s", key.c_str(), hkey.c_str(), value.c_str());
-    if (reply == nullptr) return false;
+        context, "HSET %s %s %s", hkey.c_str(), key.c_str(), value.c_str());
+    if (reply == nullptr) {
+        LOG_ERROR(
+            "[RedisManager] {} failed: Command error or connection lost",
+            __FUNCTION__);
+        return false;
+    }
 
     bool ok = (reply->type == REDIS_REPLY_INTEGER);
     freeReplyObject(reply);
@@ -184,7 +196,7 @@ std::string RedisManager::HGet(
 
     std::string value = reply->str;
     freeReplyObject(reply);
-    LOG_INFO("[RedisManager] HGET success: {} -> {} = ", key, hkey, value);
+    LOG_INFO("[RedisManager] HGET success: {} -> {} = {}", key, hkey, value);
     return value;
 }
 
@@ -195,7 +207,10 @@ bool RedisManager::Del(const std::string& key) {
 
     redisReply* reply
         = (redisReply*) redisCommand(context, "DEL %s", key.c_str());
-    if (reply == nullptr) return false;
+    if (reply == nullptr) {
+        LOG_ERROR("[RedisManager] Del failed, key is: {}", key);
+        return false;
+    }
 
     bool ok = (reply->type == REDIS_REPLY_INTEGER && reply->integer > 0);
     freeReplyObject(reply);
@@ -214,7 +229,10 @@ bool RedisManager::ExistsKey(const std::string& key) {
 
     redisReply* reply
         = (redisReply*) redisCommand(context, "EXISTS %s", key.c_str());
-    if (reply == nullptr) return false;
+    if (reply == nullptr) {
+        LOG_ERROR("[RedisManager] Internal error in ExistsKey");
+        return false;
+    }
 
     bool exists = (reply->type == REDIS_REPLY_INTEGER && reply->integer > 0);
     freeReplyObject(reply);
@@ -227,7 +245,80 @@ bool RedisManager::ExistsKey(const std::string& key) {
     return exists;
 }
 
+bool RedisManager::HDel(const std::string& hkey, const std::string& field) {
+    RedisConnGuard guard(_pool.get());
+    redisContext*  context = guard.get();
+    if (!context) {
+        LOG_ERROR("[RedisManager] HDEL failed: No available connection");
+        return false;
+    }
+
+    // 执行命令
+    redisReply* reply = (redisReply*) redisCommand(
+        context, "HDEL %s %s", hkey.c_str(), field.c_str());
+
+    // 1. 检查 reply 是否为空（网络错误或连接丢失）
+    if (reply == nullptr) {
+        LOG_ERROR(
+            "[RedisManager] HDEL failed: Command error for hash: {}, field: {}",
+            hkey,
+            field);
+        return false;
+    }
+
+    // 2. 检查返回类型是否为整数 (HDEL 返回删除的域的数量)
+    bool ok = (reply->type == REDIS_REPLY_INTEGER);
+
+    // 3. 必须释放内存
+    freeReplyObject(reply);
+
+    if (ok) {
+        LOG_INFO(
+            "[RedisManager] HDEL success: hash: {}, field: {}", hkey, field);
+    } else {
+        LOG_WARN(
+            "[RedisManager] HDEL execution issue or field not found: hash: {}, "
+            "field: {}",
+            hkey,
+            field);
+    }
+
+    return ok;
+}
+
 void RedisManager::Close() {
     _pool->Close();
     LOG_INFO("[RedisManager] Pool closed.");
+}
+
+long long RedisManager::HIncrBy(
+    const std::string& hkey, const std::string& field, long long delta) {
+    RedisConnGuard guard(_pool.get());
+    redisContext*  context = guard.get();
+    if (!context) {
+        LOG_ERROR("[RedisManager] HINCRBY failed: no available connection");
+        return -1;
+    }
+    redisReply* reply = (redisReply*) redisCommand(
+        context, "HINCRBY %s %s %lld", hkey.c_str(), field.c_str(), delta);
+    if (reply == nullptr) {
+        LOG_ERROR(
+            "[RedisManager] HINCRBY wrong reply type: hash={}, field={}, "
+            "type={}",
+            hkey,
+            field,
+            reply->type);
+        freeReplyObject(reply);
+        return -1;
+    }
+    auto new_value = reply->integer;
+    freeReplyObject(reply);
+    LOG_INFO(
+        "[RedisManager] HINCRBY success: {}[{}] {} => {}",
+        hkey,
+        field,
+        delta,
+        new_value);
+
+    return new_value;
 }
