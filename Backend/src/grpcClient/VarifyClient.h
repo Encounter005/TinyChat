@@ -1,6 +1,7 @@
+#include "infra/ChannelPool.h"
 #include "infra/ConfigManager.h"
-#include "infra/RPConPool.h"
 #include "common/const.h"
+#include "infra/StubFactory.h"
 #include "message.grpc.pb.h"
 #include "message.pb.h"
 #include "common/singleton.h"
@@ -16,6 +17,7 @@ using grpc::Status;
 using message::GetVarifyReq;
 using message::GetVarifyRsp;
 using message::VarifyService;
+using message::ErrorCode;
 
 
 class VarifyGrpcClient : public SingleTon<VarifyGrpcClient> {
@@ -27,13 +29,12 @@ public:
         GetVarifyReq  request;
         GetVarifyRsp  reply;
         request.set_email(email);
-
-        auto   stub   = _rpcPool->getConnection();
+        auto stub = _stubFactory->create();
         Status status = stub->GetVarifyCode(&context, request, &reply);
         if (status.ok()) {
             return reply;
         } else {
-            reply.set_error(ErrorCodes::RPC_FAILED);
+            reply.set_error(ErrorCode::RPC_FAILED);
             return reply;
         }
     }
@@ -44,8 +45,10 @@ private:
         auto globalConfig = ConfigManager::getInstance();
         auto host         = (*globalConfig)["VarifyServer"]["host"];
         auto port         = (*globalConfig)["VarifyServer"]["port"];
-        _rpcPool.reset(new RPConPool(5, host, port));
+        std::string server_address = host + ":" + port;
+        _pool.reset(new ChannelPool(server_address));
+        _stubFactory = std::make_unique<StubFactory<VarifyService>>(_pool);
     }
-    std::unique_ptr<VarifyService::Stub> _stub;
-    std::unique_ptr<RPConPool>           _rpcPool;
+    std::shared_ptr<ChannelPool> _pool;
+    std::unique_ptr<StubFactory<VarifyService>> _stubFactory;
 };
