@@ -2,6 +2,7 @@
 #define HTTPCONNECTION_H_
 
 #include "common/const.h"
+#include "infra/LogManager.h"
 #include <boost/beast/http/dynamic_body_fwd.hpp>
 #include <boost/beast/http/message_fwd.hpp>
 

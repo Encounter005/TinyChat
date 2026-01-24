@@ -1,7 +1,7 @@
 #include "LogicSystem.h"
 #include "HttpConnection.h"
 #include "Router.h"
-#include "VarifyGrpcClient.h"
+#include "grpcClient/VarifyClient.h"
 #include <boost/beast/core/buffers_to_string.hpp>
 #include <boost/beast/core/ostream.hpp>
 #include <json/reader.h>
