@@ -2,6 +2,7 @@
 #define REDISCONPOOL_H_
 #include <atomic>
 #include <condition_variable>
+#include "infra/LogManager.h"
 #include "common/const.h"
 #include <queue>
 #include <mutex>
@@ -31,6 +32,8 @@ public:
                 LOG_INFO("认证成功");
                 _connections.push(context);
             }
+
+            LOG_INFO("RedisPool Created");
         }
 
         ~RedisConPool() {
