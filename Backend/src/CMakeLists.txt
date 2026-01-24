@@ -5,6 +5,8 @@ file(GLOB_RECURSE srcs CONFIGURE_DEPENDS
     dao/*.cpp
     infra/*.cpp
     common/*.cpp
+    grpcClient/*.cpp
+    repository/*.cpp
 )
 
 add_library(backend_core STATIC ${srcs})
