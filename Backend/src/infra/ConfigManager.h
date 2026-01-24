@@ -22,12 +22,12 @@ struct SectionInfo {
     }
 
 
-    std::string operator[](const std::string& key) {
+    std::string operator[](const std::string& key) const  {
         auto it = _section_datas.find(key);
         if (it == _section_datas.end()) {
             return "";
         }
-        return _section_datas[key];
+        return it->second;
     }
 
     std::map<std::string, std::string> _section_datas;
@@ -58,6 +58,10 @@ public:
             return SectionInfo();
         }
         return _config_map[key];
+    }
+
+    const std::map<std::string, SectionInfo> GetAllSections() const {
+        return _config_map;
     }
 
 
