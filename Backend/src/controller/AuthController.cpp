@@ -2,7 +2,7 @@
 #include "core/HttpConnection.h"
 #include "core/HttpResponse.h"
 #include "infra/LogManager.h"
-#include "core/VarifyGrpcClient.h"
+#include "grpcClient/VarifyClient.h"
 #include "common/const.h"
 #include <boost/beast/core/buffers_to_string.hpp>
 #include <json/reader.h>
@@ -26,7 +26,7 @@ void AuthController::GetVarifyCode(std::shared_ptr<HttpConnection> connection) {
     auto email = src["email"].asString();
     auto grpc_rsp = VarifyGrpcClient::getInstance()->GetVarifyCode(email);
 
-    if(grpc_rsp.error() == ErrorCodes::RPC_FAILED) {
+    if(grpc_rsp.error() == ErrorCode::RPC_FAILED) {
         LOG_WARN("Occur RPC_FAILED when get varifycode");
         HttpResponse::Error(connection, ErrorCodes::RPC_FAILED);
         return;
