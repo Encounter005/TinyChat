@@ -12,9 +12,11 @@ class UserController {
 public:
     static void Register(LogicSystem& logic);
     static void ResetPwd(LogicSystem& logic);
+    static void Login(LogicSystem& logic);
 private:
     static void RegisterUser(std::shared_ptr<HttpConnection> connection);
     static void ResetUserPwd(std::shared_ptr<HttpConnection> connection);
+    static void UserLogin(std::shared_ptr<HttpConnection> connection);
 };
 
 
