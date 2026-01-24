@@ -8,4 +8,5 @@ void Router::RegisterRoutes(LogicSystem &logic) {
     AuthController::Register(logic);
     UserController::Register(logic);
     UserController::ResetPwd(logic);
+    UserController::Login(logic);
 }
