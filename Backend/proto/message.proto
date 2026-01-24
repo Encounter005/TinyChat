@@ -2,6 +2,35 @@ syntax = "proto3";
 
 package message;
 
+enum ErrorCode {
+    SUCCESS                 = 0;
+    ERROR_JSON              = 1001;   // json parse error
+    RPC_FAILED              = 1002;   // rpc request error
+    VARIFY_EXPIRED          = 1003;   // varify_code expired
+    VARIFY_CODE_ERROR       = 1004;
+    USER_EXIST              = 1005;
+    PASSWORD_ERROR          = 1006;
+    EMAIL_NOT_MATCH         = 1007;
+    MYSQL_CONNECTION_ERROR  = 1008;
+    SQL_ERROR               = 1009;
+    SQL_STAND_EXCEPTION     = 1010;
+    MYSQL_UNKNOWN_ERROR     = 1011;
+    SQL_OPERATION_EXCEPTION = 1012;
+    PASSWORD_RESET_ERROR    = 1013;
+    UID_INVALID             = 1014;
+    TOKEN_INVALID           = 1015;
+    REDIS_ERROR             = 1016;
+}
+
+
+service ChatService {
+    rpc NotifyAddFriend(AddFriendReq)     returns (AddFriendRsp) {}
+    rpc ReplyAddFriend(ReplyFriendReq)    returns (ReplyFriendRsp) {}
+    rpc SendChatMsg(SendChatMsgReq)       returns (SendChatMsgRsp) {}
+    rpc NotifyAuthFriend(AuthFriendReq)   returns (AuthFriendRsp) {}
+    rpc NotifyTextChatmsg(TextChatMsgReq) returns (TextChatMsgRsp) {}
+}
+
 service VarifyService {
     rpc GetVarifyCode (GetVarifyReq) returns (GetVarifyRsp) {}
 }
@@ -11,8 +40,105 @@ message GetVarifyReq {
 }
 
 message GetVarifyRsp {
-    int32 error = 1;
-    string email = 2;
-    string code = 3;
+    ErrorCode error = 1;
+    string email    = 2;
+    string code     = 3;
 
+}
+
+service StatusService {
+    rpc GetChatServer (GetChatServerReq) returns (GetChatServerRsp) {}
+    rpc Login(LoginReq) returns (LoginRsp);
+}
+
+message GetChatServerReq {
+    int32 uid = 1;
+}
+
+message GetChatServerRsp {
+    ErrorCode error = 1;
+    string host     = 2;
+    string port     = 3;
+    string token    = 4;
+}
+
+message LoginReq {
+    int32 uid    = 1;
+    string token = 2;
+}
+
+message LoginRsp {
+    int32 error  = 1;
+    int32 uid    = 2;
+    string token = 3;
+}
+
+message AddFriendReq {
+    int32 applyuid = 1;
+    int32 sex      = 2;
+    int32 touid    = 3;
+    string name    = 4;
+    string desc    = 5;
+    string icon    = 6;
+    string nick    = 7;
+}
+
+message AddFriendRsp {
+    ErrorCode error = 1;
+    int32 applyuid  = 2;
+    int32 touid     = 3;
+}
+
+message ReplyFriendReq {
+    int32 replyuid = 1;
+    bool agree     = 2;
+    int32 touid    = 3;
+}
+
+message ReplyFriendRsp {
+    ErrorCode error = 1;
+    int32 replyuid  = 2;
+    int32 touid     = 3;
+}
+
+message SendChatMsgReq {
+    int32 fromuid   = 1;
+    int32 touid     = 2;
+    string message  = 3;
+}
+
+message SendChatMsgRsp {
+    ErrorCode error = 1;
+    int32 fromuid   = 2;
+    int32 touid     = 3;
+}
+
+message AuthFriendReq {
+    int32 fromuid   = 1;
+    int32 touid     = 2;
+}
+
+message AuthFriendRsp {
+    ErrorCode error = 1;
+    int32 fromuid   = 2;
+    int32 touid     = 3;
+}
+
+message TextChatData {
+    string msgid                   = 1;
+    string msgcontent              = 2;
+
+}
+
+message TextChatMsgReq {
+    int32 fromuid                  = 1;
+    int32 touid                    = 2;
+    repeated TextChatData textmsgs = 3;
+}
+
+message TextChatMsgRsp {
+    ErrorCode error                = 1;
+    int32 fromuid                  = 2;
+    int32 touid                    = 3;
+    repeated TextChatData textmsgs = 4;
 }
