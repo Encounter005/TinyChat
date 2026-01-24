@@ -1,13 +1,14 @@
 #include "UserService.h"
 #include "common/const.h"
-#include "core/VarifyGrpcClient.h"
-#include "dao/UserDAO.h"
+#include "common/result.h"
+#include "grpcClient/VarifyClient.h"
 #include "infra/LogManager.h"
 #include "infra/RedisManager.h"
+#include "repository/UserRepository.h"
 #include <boost/beast/core/buffers_to_string.hpp>
 #include <json/reader.h>
 
-int UserService::Register(
+Result<int> UserService::Register(
     const std::string &user, const std::string &email,
     const std::string &passwd, const std::string &confirm,
     const std::string &varify_code) {
@@ -16,51 +17,63 @@ int UserService::Register(
             "Occur password error passwd is: {} confirm is: {}",
             passwd,
             confirm);
-        return ErrorCodes::PasswdError;
+        return Result<int>::Error(ErrorCodes::PASSWORD_ERROR);
     }
 
     std::string redis_code;
     if (!RedisManager::getInstance()->Get(email, redis_code)) {
-        return ErrorCodes::VarifyExpired;
+        return Result<int>::Error(ErrorCodes::VARIFY_EXPIRED);
     }
 
     if (redis_code != varify_code) {
-        return ErrorCodes::VarifyCodeError;
+        return Result<int>::Error(ErrorCodes::VARIFY_CODE_ERROR);
     }
 
     if (RedisManager::getInstance()->ExistsKey(user)) {
-        return ErrorCodes::UserExist;
+        return Result<int>::Error(ErrorCodes::USER_EXIST);
     }
 
-    auto uid = UserDAO::getInstance()->RegUser(user, email, passwd);
-    if (uid <= 0) {
-        return ErrorCodes::UserExist;
-    }
-
-    return 0;
+    auto res = UserRepository::createUser(user, email, passwd);
+    return res;
 }
 
 
-int UserService::ResetPass(
-    const std::string &name, const std::string &email, const std::string& new_pass,
-    const std::string &varify_code) {
+Result<void> UserService::ResetPass(
+    const std::string &name, const std::string &email,
+    const std::string &new_pass, const std::string &varify_code) {
 
     std::string redis_code;
-    if(!RedisManager::getInstance()->Get(email, redis_code)) {
-        return ErrorCodes::VarifyExpired;
+    if (!RedisManager::getInstance()->Get(email, redis_code)) {
+        return Result<void>::Error(ErrorCodes::VARIFY_EXPIRED);
     }
-    if(redis_code != varify_code) {
-        return ErrorCodes::VarifyCodeError;
+    if (redis_code != varify_code) {
+        return Result<void>::Error(ErrorCodes::VARIFY_CODE_ERROR);
     }
 
     // check if email is exists
-    auto IsEmailMatch = UserDAO::getInstance()->CheckUserEmail(name, email);
-    if(!IsEmailMatch) {
-        return ErrorCodes::EmailNotMatch;
+    auto ResultEmail = UserRepository::getEmailByName(name);
+    if( !ResultEmail.IsOK() ) {
+        return Result<void>::Error(ResultEmail.Error());
     }
-    auto IsPasswordUpdated = UserDAO::getInstance()->ResetPwd(name, new_pass);
-    if(!IsPasswordUpdated) {
-        return ErrorCodes::PasswdError;
+    auto db_email = ResultEmail.Value();
+    if(db_email != email) {
+        return Result<void>::Error(ErrorCodes::EMAIL_NOT_MATCH);
     }
-    return 0;
+
+    auto checkPasswordResult = UserRepository::resetPassword(name, new_pass);
+    if (!checkPasswordResult.IsOK()) {
+        return checkPasswordResult;
+    }
+    return Result<void>::OK();
+}
+
+Result<UserInfo> UserService::Login(
+    const std::string &email) {
+    auto res = UserRepository::findUserAuthInfoByEmail(email);
+    return res;
+}
+
+Result<UserInfo> UserService::GetUserBase(int uid) {
+    auto res = UserRepository::getUserById(uid);
+    return res;
 }
