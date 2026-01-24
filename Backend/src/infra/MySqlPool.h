@@ -13,6 +13,7 @@
 #include <mysql_connection.h>
 #include <mysql_driver.h>
 #include <queue>
+#include "infra/LogManager.h"
 
 
 
@@ -37,6 +38,8 @@ public:
             connection->setSchema(_schema);
             _pool.push(std::move(connection));
         }
+
+        LOG_INFO("MySqlPool Created");
     }
     std::unique_ptr<sql::Connection> getConnection() {
         std::unique_lock<std::mutex> lock(_mutex);
