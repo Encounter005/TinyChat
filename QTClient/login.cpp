@@ -1,4 +1,6 @@
 #include "login.h"
+#include "httpmanager.h"
+#include "tcpmanager.h"
 #include "ui_login.h"
 #include <QPushButton>
 #include <QLineEdit>
@@ -10,7 +12,9 @@ Login::Login(QWidget *parent)
     , ui(new Ui::Login)
 {
     ui->setupUi(this);
+    initHttpHandlers();
     connect(ui->register_button, &QPushButton::clicked, this, &Login::switchToRegister);
+    ui->password_edit->setEchoMode(QLineEdit::Password);
     ui->error_tips->setProperty("state", "normal");
     repolish(ui->error_tips);
     ui->error_tips->clear();
@@ -36,6 +40,10 @@ Login::Login(QWidget *parent)
     ui->forget_label->SetState("normal","hover","","selected","selected_hover","");
     ui->forget_label->setCursor(Qt::PointingHandCursor);
     connect(ui->forget_label, &ClickedLabel::clicked, this, &Login::slot_forget_pwd);
+    connect(HttpManager::getInstance().get(), &HttpManager::sig_login_mod_finish, this, &Login::slot_login_mod_finish);
+    connect(this, &Login::sig_connect_tcp, TcpManager::getInstance().get(), &TcpManager::slot_tcp_connect);
+    connect(TcpManager::getInstance().get(), &TcpManager::sig_con_success, this, &Login::slot_tcp_connection_finish);
+    connect(TcpManager::getInstance().get(), &TcpManager::sig_login_failed, this, &Login::slot_login_failed);
 }
 
 Login::~Login()
@@ -110,6 +118,40 @@ bool Login::checkPassValid()
     return true;
 }
 
+void Login::initHttpHandlers()
+{
+    //注册获取登录回包逻辑
+    _handlers.insert(ReqId::ID_LOGIN_USER, [this](QJsonObject jsonObj){
+        int error = jsonObj["error"].toInt();
+        if(error != ErrorCodes::SUCCESS){
+            showTip(tr("参数错误"),false);
+            return;
+        }
+        showTip(tr("登录成功"), true);
+
+        auto data = jsonObj["data"].toObject();
+
+        ServerInfo si;
+        si.Uid = data["uid"].toInt();
+        si.Host = data["host"].toString();
+        si.Port = data["port"].toString();
+        si.Token = data["token"].toString();
+        _uid = si.Uid;
+        _token = si.Token;
+
+        qDebug()<< " uid is " << si.Uid <<" host is "
+                 << si.Host << " Port is " << si.Port << " Token is " << si.Token;
+        emit sig_connect_tcp(si);
+    });
+}
+
+bool Login::enableBtn(bool enabled)
+{
+    ui->login_button->setEnabled(enabled);
+    ui->login_button->setEnabled(enabled);
+    return true;
+}
+
 void Login::slot_forget_pwd()
 {
     qDebug()<<"slot forget pwd";
@@ -117,6 +159,69 @@ void Login::slot_forget_pwd()
 
 }
 
+void Login::slot_login_mod_finish(ReqId id, QString res, ErrorCodes err)
+{
+    qDebug() << "err is: " << err;
+    if(err != ErrorCodes::SUCCESS){
+        showTip(tr("网络请求错误"),false);
+        return;
+    }
+    // 解析 JSON 字符串,res需转化为QByteArray
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(res.toUtf8());
+    qDebug() << "jsonDoc is: "<< jsonDoc;
+    //json解析错误
+    if(jsonDoc.isNull()){
+        showTip(tr("json解析错误"),false);
+        return;
+    }
+    //json解析错误
+    if(!jsonDoc.isObject()){
+        showTip(tr("json解析错误"),false);
+        return;
+    }
+    //调用对应的逻辑,根据id回调。
+    _handlers[id](jsonDoc.object());
+    return;
+}
 
+void Login::slot_login_failed(ErrorCodes err)
+{
+    QString result = QString("登录失败, err is %1").arg(err);
+    showTip(result, false);
+    enableBtn(true);
+}
 
+void Login::on_login_button_clicked()
+{
+    qDebug()<<"login btn clicked";
+    if(checkEmailValid() == false){
+        return;
+    }
+    if(checkPassValid() == false){
+        return ;
+    }
+
+    auto email = ui->user_lineEdit->text();
+    auto passwd = ui->password_edit->text();
+    QJsonObject json_obj;
+    json_obj["email"] = email;
+    json_obj["passwd"] = toMD5(passwd);
+    HttpManager::getInstance()->PostHttpReq(QUrl(gate_url_prefix + "/user_login"), json_obj, ReqId::ID_LOGIN_USER, Modules::LOGINMOD);
+}
+
+void Login::slot_tcp_connection_finish(bool success)
+{
+    if(success) {
+        showTip(tr("聊天服务连接成功，正在登录..."), true);
+        QJsonObject jsonObj;
+        jsonObj["uid"] = _uid;
+        jsonObj["token"] = _token;
+        QJsonDocument doc(jsonObj);
+        QString jsonString = doc.toJson(QJsonDocument::Indented);
+        TcpManager::getInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN_REQ, jsonString);
+    } else {
+        showTip(tr("网络异常"), false);
+        enableBtn(true);
+    }
+}
 

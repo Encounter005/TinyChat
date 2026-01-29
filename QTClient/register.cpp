@@ -115,7 +115,7 @@ void Register::initHttpHandlers()
         qDebug() << "json obj is: " << jsonObj;
     });
 
-    _handlers.insert(ReqId::ID_REG_UESR, [this](QJsonObject jsonObj){
+    _handlers.insert(ReqId::ID_REG_USER, [this](QJsonObject jsonObj){
         int error = jsonObj["error"].toInt();
         if(error != ErrorCodes::SUCCESS) {
             showTip(tr("用户参数错误"), false);
@@ -207,7 +207,7 @@ void Register::on_confirm_button_clicked()
     jsonObj["varifycode"] = ui->verify_edit->text();
     jsonObj["confirm"] = toMD5(ui->confirm_edit->text());
     HttpManager::getInstance()->PostHttpReq(QUrl(gate_url_prefix+"/user_register"),
-                                            jsonObj, ReqId::ID_REG_UESR, Modules::REGISTERMOD);
+                                            jsonObj, ReqId::ID_REG_USER, Modules::REGISTERMOD);
 }
 
 
