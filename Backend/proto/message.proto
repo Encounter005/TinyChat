@@ -133,7 +133,7 @@ message TextChatData {
 message TextChatMsgReq {
     int32 fromuid                  = 1;
     int32 touid                    = 2;
-    repeated TextChatData textmsgs = 3;
+    repeated TextChatData textmsgs = 3; // like array
 }
 
 message TextChatMsgRsp {
