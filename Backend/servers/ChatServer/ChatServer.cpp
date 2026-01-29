@@ -43,9 +43,28 @@ void ChatServer::Register() {
     });
     // Login
     _dispatcher->Register(
-        MsgId::ID_CHAT_LOGIN, [this](auto session, const auto& msg) {
+        MsgId::ID_CHAT_LOGIN_REQ, [this](auto session, const auto& msg) {
             LogicHandler::HandleLogin(this->_server_info, session, msg);
         });
+    // Search
+    _dispatcher->Register(
+        MsgId::ID_SEARCH_USER_REQ, [](auto session, const auto& msg) {
+            LogicHandler::HandleSearch(session, msg);
+        });
+    // ApplyFriend
+    _dispatcher->Register(
+        MsgId::ID_ADD_FRIEND_REQ, [this](auto session, const auto& msg) {
+            LogicHandler::AddFriendApply(this->_server_info, session, msg);
+        });
+    // AuthFriend
+    _dispatcher->Register(
+        MsgId::ID_AUTH_FRIEND_REQ, [this](auto session, const auto& msg) {
+            LogicHandler::AuthFriendApply(this->_server_info, session, msg);
+        });
+    // TextMsg
+    _dispatcher->Register(MsgId::ID_TEXT_CHAT_MSG_REQ, [this](auto session, const auto& msg){
+        LogicHandler::HandleChatTextMsg(this->_server_info, session, msg);
+    });
 }
 
 void ChatServer::DoAccept() {

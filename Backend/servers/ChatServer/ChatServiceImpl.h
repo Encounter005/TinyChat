@@ -30,8 +30,6 @@ public:
         ServerContext* context, const TextChatMsgReq* request,
         TextChatMsgRsp* response) override;
 
-    bool GetBaseInfo(const std::string& base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
-
 private:
 };
 
