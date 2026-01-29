@@ -16,8 +16,8 @@
 
 std::unique_ptr<grpc::Server> StartRPCServer(
     const std::string& server_address) {
-    ChatServiceImpl     service;
-    grpc::ServerBuilder builder;
+    static ChatServiceImpl service;
+    grpc::ServerBuilder    builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
