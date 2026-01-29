@@ -1,6 +1,7 @@
 #ifndef CHATCLIENT_H_
 #define CHATCLIENT_H_
 
+#include "common/ChatServerInfo.h"
 #include "common/UserMessage.h"
 #include "common/singleton.h"
 #include "infra/ChannelPool.h"
@@ -16,6 +17,7 @@ using message::AuthFriendRsp;
 using message::ChatService;
 using message::SendChatMsgReq;
 using message::SendChatMsgRsp;
+using message::TextChatData;
 using message::TextChatMsgReq;
 using message::TextChatMsgRsp;
 using message::ChatService;
@@ -27,9 +29,9 @@ class ChatClient : public SingleTon<ChatClient> {
 public:
     ~ChatClient() = default;
     AddFriendRsp NotifyAddFriend(
-        const std::string& server_ip, const AddFriendReq& req);
+        const std::string& server_name, const AddFriendReq& req);
     AuthFriendRsp NotifyAuthFriend(
-        const std::string& server_ip, const AuthFriendReq& req);
+        const std::string& server_name, const AuthFriendReq& req);
     bool GetBaseInfo(
         const std::string& base_key, int uid,
         std::shared_ptr<UserInfo>& userinfo);
@@ -41,7 +43,6 @@ private:
     explicit ChatClient();
 private:
     std::unordered_map<std::string, std::shared_ptr<ChannelPool>> _pools;
-    std::unique_ptr<StubFactory<ChatService>> _stubFactory;
 };
 
 
