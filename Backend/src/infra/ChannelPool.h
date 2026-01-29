@@ -35,6 +35,9 @@ public:
         auto        channel = _channels[idx % _channels.size()];
         return channel;
     }
+        ~ChannelPool() {
+            LOG_ERROR("ChannelPool destroyed");
+        }
 
 
 private:
