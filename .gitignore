@@ -2,3 +2,6 @@ Backend/.cache/clangd/index
 Backend/build
 Backend/servers/VarifyServer/node_modules
 Backend/uploads
+Backend/logs/server.log
+Backend/res.log
+Backend/brief.md
