@@ -8,9 +8,29 @@ set(CMAKE_CXX_COMPILER "g++")
 # setting C++ Standard
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -g -fcoroutines -O3 -Wall -Wextra -Weffc++ -Werror=uninitialized  -Werror=return-type -Wconversion -Wsign-compare -Werror=unused-result -Werror=suggest-override -Wzero-as-null-pointer-constant -Wmissing-declarations -Wold-style-cast -Wnon-virtual-dtor -Wl,--copy-dt-needed-entries"
+add_compile_options(
+    -g
+    -O1
+    -fcoroutines
+    -Wall
+    -Wextra
+    -Weffc++
+    -Werror=return-type
+    -Wconversion
+    -Wsign-compare
+    -Werror=unused-result
+    -Werror=suggest-override
+    -Wzero-as-null-pointer-constant
+    -Wmissing-declarations
+    -Wold-style-cast
+    -Wnon-virtual-dtor
+    -fsanitize=address
+    -fno-omit-frame-pointer
 )
+
+add_link_options(
+    -fsanitize=address)
+
 
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
