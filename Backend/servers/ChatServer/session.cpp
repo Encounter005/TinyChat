@@ -5,8 +5,11 @@
 #include "common/const.h"
 #include "dispatcher.h"
 #include "infra/LogManager.h"
+#include "infra/Defer.h"
 #include "repository/ChatServerRepository.h"
+#include "repository/UserRepository.h"
 #include <boost/asio.hpp>
+#include <boost/system/detail/error_code.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <chrono>
@@ -62,27 +65,41 @@ void Session::Send(uint16_t msg_id, const std::string& msg) {
 }
 
 void Session::DoClose() {
-    if (_closed) return;
-    _closed = true;
     auto self = shared_from_this();
     boost::asio::post(_strand, [self]() {
-        if (self->_closed) return;
-        self->_closed = true;
+        // 1. 只允许关闭一次
+        bool expected = false;
+        if (!self->_closed.compare_exchange_strong(expected, true)) {
+            return;
+        }
 
+        // 2. 最后一定要执行的清理（统一兜底）
+        Defer defer_cleanup([self]() {
+            // socket 关闭（一定执行）
+            boost::system::error_code ec;
+            self->_socket.shutdown(tcp::socket::shutdown_both, ec);
+            self->_socket.close(ec);
+
+            // session 移除
+            SessionManager::getInstance()->Remove(self->Id());
+            // server 连接数 -1
+            ChatServerRepository::DecrConnection(self->_server_name);
+
+            // 回调
+            if (self->_on_close) {
+                self->_on_close(self->_uuid);
+            }
+        });
+
+        // 3. 用户解绑（可安全提前 return）
         if (self->_user_uid != -1) {
             UserManager::getInstance()->UnBind(self->_user_uid);
+            // remove user uid with server
+            UserRepository::UnBindUserIpWithServer(self->_user_uid);
             self->_user_uid = -1;
         }
 
-        ChatServerRepository::DecrConnection(self->_server_name);
-        SessionManager::getInstance()->Remove(self->Id());
-        boost::system::error_code ec;
-        self->_socket.shutdown(tcp::socket::shutdown_both, ec);
-        self->_socket.close(ec);
-
-        if (self->_on_close) {
-            self->_on_close(self->_uuid);
-        }
+        // 👇 以后你在这里随便加 return，都不会破坏清理
     });
 }
 
@@ -91,7 +108,7 @@ void Session::DoRead() {
     _socket.async_read_some(
         boost::asio::buffer(_read_buf),
         boost::asio::bind_executor(
-            _strand, [self](auto ec, auto bytes) { self->OnRead(ec, bytes); }));
+            _strand, [self](const boost::system::error_code& ec, std::size_t bytes) { self->OnRead(ec, bytes); }));
 }
 
 void Session::OnRead(const boost::system::error_code& ec, std::size_t bytes) {
@@ -118,7 +135,7 @@ void Session::DoWrite() {
     boost::asio::async_write(
         _socket,
         boost::asio::buffer(_write_queue.front()),
-        boost::asio::bind_executor(_strand, [self](auto ec, auto bytes) {
+        boost::asio::bind_executor(_strand, [self](boost::system::error_code ec, std::size_t bytes) {
             self->OnWrite(ec, bytes);
         }));
 }
