@@ -322,3 +322,29 @@ long long RedisManager::HIncrBy(
 
     return new_value;
 }
+
+bool RedisManager::LRange(const std::string& key, int start, int stop, std::vector<std::string>& values) {
+    RedisConnGuard guard(_pool.get());
+    redisContext*  context = guard.get();
+    if (!context) return false;
+
+    redisReply* reply = (redisReply*) redisCommand(
+        context, "LRANGE %s %d %d", key.c_str(), start, stop);
+    if (reply == nullptr) {
+        LOG_ERROR("[RedisManager] LRANGE failed: command error for key: {}", key);
+        return false;
+    }
+
+    if (reply->type != REDIS_REPLY_ARRAY) {
+        LOG_ERROR("[RedisManager] LRANGE failed: wrong type: {}, expected array", reply->type);
+        freeReplyObject(reply);
+        return false;
+    }
+
+    for (size_t i = 0; i < reply->elements; ++i) {
+        values.push_back(reply->element[i]->str);
+    }
+    freeReplyObject(reply);
+    LOG_INFO("[RedisManager] LRANGE success: key: {}, count: {}", key, values.size());
+    return true;
+}

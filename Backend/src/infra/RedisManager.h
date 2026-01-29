@@ -53,6 +53,7 @@ public:
     std::string HGet(const std::string& key, const std::string& hkey);
     void        Close();
     long long HIncrBy(const std::string& hkey, const std::string& field, long long delta);
+    bool LRange(const std::string& key, int start, int stop, std::vector<std::string>& values);
 
 private:
     RedisManager();
