@@ -5,6 +5,7 @@
 #include "session.h"
 #include <unordered_map>
 #include <shared_mutex>
+
 class UserManager : public SingleTon<UserManager> {
     friend class SingleTon<UserManager>;
 public:

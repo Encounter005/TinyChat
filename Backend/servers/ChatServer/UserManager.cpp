@@ -7,6 +7,7 @@
 void UserManager::Bind(int uid, std::shared_ptr<Session> session) {
     std::unique_lock<std::shared_mutex> lock(_mtx);
     _uid_to_session[uid] = session;
+
 }
 
 
@@ -25,3 +26,4 @@ std::shared_ptr<Session> UserManager::GetSession(int uid) {
         return it->second;
     }
 }
+
