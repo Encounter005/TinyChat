@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package FileService;
+
+service FileTransport {
+  // 客户端流式上传
+  rpc UploadFile(stream UploadRequest) returns (UploadResponse);
+  rpc DownloadFile(DownloadRequest) returns (stream DownloadResponse);
+}
+
+
+message UploadRequest {
+  oneof data {
+    FileMeta meta = 1;   // 元数据
+    bytes chunk = 2;     // 二进制数据块
+  }
+}
+
+message FileMeta {
+  string file_name = 1;
+  int64 total_size = 2;
+  string file_md5 = 3;   // 作为任务分发的哈希依据
+}
+
+message UploadResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message DownloadResponse {
+    oneof data {
+          FileMeta meta = 1;
+          bytes chunk = 2;
+    }
+}
+
+message DownloadRequest {
+    string file_name = 1;
+}
