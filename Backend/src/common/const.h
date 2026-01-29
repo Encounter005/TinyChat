@@ -35,43 +35,46 @@ enum class ErrorCodes : int {
     UID_INVALID             = 1014,
     TOKEN_INVALID           = 1015,
     REDIS_ERROR             = 1016,
+    APPLYFRIEND_ERROR       = 1017,
 };
 
 constexpr const char* ErrorMsg(ErrorCodes code) {
     switch (code) {
-    case ErrorCodes::SUCCESS: return "success";
+    case ErrorCodes::SUCCESS:                 return "success";
 
-    case ErrorCodes::ERROR_JSON: return "json parse error";
+    case ErrorCodes::ERROR_JSON:              return "json parse error";
 
-    case ErrorCodes::RPC_FAILED: return "rpc request failed";
+    case ErrorCodes::RPC_FAILED:              return "rpc request failed";
 
-    case ErrorCodes::VARIFY_EXPIRED: return "verify code expired";
+    case ErrorCodes::VARIFY_EXPIRED:          return "verify code expired";
 
-    case ErrorCodes::VARIFY_CODE_ERROR: return "verify code error";
+    case ErrorCodes::VARIFY_CODE_ERROR:       return "verify code error";
 
-    case ErrorCodes::USER_EXIST: return "user already exists";
+    case ErrorCodes::USER_EXIST:              return "user already exists";
 
-    case ErrorCodes::PASSWORD_ERROR: return "password error";
+    case ErrorCodes::PASSWORD_ERROR:          return "password error";
 
-    case ErrorCodes::EMAIL_NOT_MATCH: return "email not match";
+    case ErrorCodes::EMAIL_NOT_MATCH:         return "email not match";
 
-    case ErrorCodes::MYSQL_CONNECTION_ERROR: return "mysql connection error";
+    case ErrorCodes::MYSQL_CONNECTION_ERROR:  return "mysql connection error";
 
-    case ErrorCodes::SQL_ERROR: return "sql error";
+    case ErrorCodes::SQL_ERROR:               return "sql error";
 
-    case ErrorCodes::SQL_STAND_EXCEPTION: return "sql standard exception";
+    case ErrorCodes::SQL_STAND_EXCEPTION:     return "sql standard exception";
 
-    case ErrorCodes::MYSQL_UNKNOWN_ERROR: return "mysql unknown error";
+    case ErrorCodes::MYSQL_UNKNOWN_ERROR:     return "mysql unknown error";
 
     case ErrorCodes::SQL_OPERATION_EXCEPTION: return "sql operation exception";
 
-    case ErrorCodes::PASSWORD_RESET_ERROR: return "password reset error";
+    case ErrorCodes::PASSWORD_RESET_ERROR:    return "password reset error";
 
-    case ErrorCodes::UID_INVALID: return "uid invalid";
+    case ErrorCodes::UID_INVALID:             return "uid invalid";
 
-    case ErrorCodes::TOKEN_INVALID: return "token invalid";
+    case ErrorCodes::TOKEN_INVALID:           return "token invalid";
 
-    case ErrorCodes::REDIS_ERROR: return "redis operation error";
+    case ErrorCodes::REDIS_ERROR:             return "redis operation error";
+
+    case ErrorCodes::APPLYFRIEND_ERROR:       return "apply friend error";
 
     default: return "unknown error";
     }
