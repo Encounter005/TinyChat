@@ -1,3 +1,4 @@
 Backend/.cache/clangd/index
 Backend/build
 Backend/servers/VarifyServer/node_modules
+Backend/uploads
