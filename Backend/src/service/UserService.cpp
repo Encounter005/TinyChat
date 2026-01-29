@@ -1,6 +1,8 @@
 #include "UserService.h"
+#include "common/UserMessage.h"
 #include "common/const.h"
 #include "common/result.h"
+#include "dao/UserDAO.h"
 #include "grpcClient/VarifyClient.h"
 #include "infra/LogManager.h"
 #include "infra/RedisManager.h"
@@ -52,11 +54,11 @@ Result<void> UserService::ResetPass(
 
     // check if email is exists
     auto ResultEmail = UserRepository::getEmailByName(name);
-    if( !ResultEmail.IsOK() ) {
+    if (!ResultEmail.IsOK()) {
         return Result<void>::Error(ResultEmail.Error());
     }
     auto db_email = ResultEmail.Value();
-    if(db_email != email) {
+    if (db_email != email) {
         return Result<void>::Error(ErrorCodes::EMAIL_NOT_MATCH);
     }
 
@@ -67,13 +69,38 @@ Result<void> UserService::ResetPass(
     return Result<void>::OK();
 }
 
-Result<UserInfo> UserService::Login(
-    const std::string &email) {
+Result<UserInfo> UserService::Login(const std::string &email) {
     auto res = UserRepository::findUserAuthInfoByEmail(email);
     return res;
 }
 
 Result<UserInfo> UserService::GetUserBase(int uid) {
     auto res = UserRepository::getUserById(uid);
+    return res;
+}
+
+Result<void> UserService::AddFriendApply(const int &from, const int &to) {
+    auto res = UserRepository::AddFriendApply(from, to);
+    return res;
+}
+
+Result<std::vector<std::shared_ptr<ApplyInfo>>> UserService::GetApplyList(
+    int uid) {
+    auto res = UserRepository::GetApplyList(uid);
+    return res;
+}
+
+Result<void> UserService::AuthFriendApply(const int &from, const int &to) {
+    auto res = UserRepository::AuthFriendApply(from, to);
+    return res;
+}
+
+Result<void> UserService::AddFriend(const int &from, const int &to, const std::string &back_name) {
+    auto res = UserRepository::AddFriend(from, to, back_name);
+    return res;
+}
+
+Result<std::vector<std::shared_ptr<UserInfo>>> UserService::GetFriendList(int uid) {
+    auto res = UserRepository::GetFriendList(uid);
     return res;
 }

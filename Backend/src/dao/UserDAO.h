@@ -2,6 +2,7 @@
 #define USERDAO_H_
 
 #include "MySqlDAO.h"
+#include "common/UserMessage.h"
 #include "common/const.h"
 #include "common/result.h"
 #include "common/singleton.h"
@@ -12,6 +13,7 @@
 #include <cppconn/resultset.h>
 #include <cppconn/statement.h>
 #include <memory>
+#include <vector>
 
 class UserDAO : public MySqlDAO, public SingleTon<UserDAO> {
     friend class SingleTon<UserDAO>;
@@ -110,7 +112,6 @@ public:
         return executeWithConn<UserInfo>([&](sql::Connection* conn) {
             std::unique_ptr<sql::PreparedStatement> stmt(
                 conn->prepareStatement("SELECT * FROM user WHERE uid = ?"));
-            LOG_DEBUG("[MySQL] uid is: {}", uid);
             stmt->setInt(1, uid);
             std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
             UserInfo                        userInfo;
@@ -118,10 +119,134 @@ public:
                 userInfo.email = res->getString("email");
                 userInfo.uid   = res->getInt("uid");
                 userInfo.name  = res->getString("name");
-                LOG_INFO("[MySQL] find userinfo: uid = {}, name = {}, email = {}", userInfo.uid, userInfo.name, userInfo.email);
+                userInfo.icon  = res->getString("icon");
+                userInfo.nick  = res->getString("nick");
+                LOG_INFO(
+                    "[MySQL] find userinfo: uid = {}, name = {}, email = {}",
+                    userInfo.uid,
+                    userInfo.name,
+                    userInfo.email);
                 return Result<UserInfo>::OK(userInfo);
             }
             return Result<UserInfo>::Error(ErrorCodes::MYSQL_UNKNOWN_ERROR);
+        });
+    }
+    Result<void> AddFriendApply(const int& from, const int& to) {
+        return executeWithConn<void>([&](sql::Connection* conn) {
+            std::unique_ptr<sql::PreparedStatement> stmt(conn->prepareStatement(
+                "INSERT INTO friend_apply (from_uid, to_uid) values (?,?) "
+                "ON DUPLICATE KEY UPDATE from_uid = from_uid, to_uid = "
+                "to_uid "));
+            stmt->setInt(1, from);
+            stmt->setInt(2, to);
+            std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+            if (res) {
+                return Result<void>::OK();
+            } else {
+                return Result<void>::Error(ErrorCodes::APPLYFRIEND_ERROR);
+            }
+        });
+    }
+    Result<std::vector<std::shared_ptr<ApplyInfo>>> GetApplyList(
+        int touid, int begin, int limit) {
+        return executeWithConn<std::vector<
+            std::shared_ptr<ApplyInfo>>>([&](sql::Connection* conn) {
+            std::vector<std::shared_ptr<ApplyInfo>> app_list;
+            std::unique_ptr<sql::PreparedStatement> stmt(conn->prepareStatement(
+                "select apply.from_uid, apply.status, user.name, "
+                "user.nick, user.sex from friend_apply as apply join user on "
+                "apply.from_uid = user.uid where apply.to_uid = ? "
+                "and apply.id > ? order by apply.id ASC LIMIT ? "));
+            stmt->setInt(1, touid);
+            stmt->setInt(2, begin);
+            stmt->setInt(3, limit);
+            std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+            while (res->next()) {
+                auto name      = res->getString("name");
+                auto uid       = res->getInt("from_uid");
+                auto status    = res->getInt("status");
+                auto nick      = res->getString("nick");
+                auto sex       = res->getInt("sex");
+                auto apply_ptr = std::make_shared<ApplyInfo>(
+                    uid, name, "", "", nick, sex, status);
+                app_list.push_back(apply_ptr);
+            }
+            return Result<std::vector<std::shared_ptr<ApplyInfo>>>::OK(
+                app_list);
+        });
+    }
+
+
+    Result<void> AuthFriendApply(const int& from, const int& to) {
+        return executeWithConn<void>([&](sql::Connection* conn) {
+            std::unique_ptr<sql::PreparedStatement> stmt(conn->prepareStatement(
+                "UPDATE friend_apply SET status = 1 "
+                "WHERE from_uid = ? AND to_uid = ?"));
+            stmt->setInt(1, from);
+            stmt->setInt(2, to);
+            std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+            if (res) {
+                return Result<void>::OK();
+            } else {
+                return Result<void>::Error(ErrorCodes::MYSQL_UNKNOWN_ERROR);
+            }
+        });
+    }
+
+    Result<void> AddFriend(
+        const int& from, const int& to, const std::string& back_name) {
+        return executeWithConn<void>([&](sql::Connection* conn) {
+            std::unique_ptr<sql::PreparedStatement> stmt1(
+                conn->prepareStatement(
+                    "INSERT IGNORE INTO friend(self_id, friend_id, back) "
+                    "VALUES (?, ?, ?) "));
+            stmt1->setInt(1, from);
+            stmt1->setInt(2, to);
+            stmt1->setString(3, back_name);
+            std::unique_ptr<sql::ResultSet> res1(stmt1->executeQuery());
+            if (!res1) {
+                return Result<void>::Error(ErrorCodes::MYSQL_UNKNOWN_ERROR);
+            }
+
+            std::unique_ptr<sql::PreparedStatement> stmt2(
+                conn->prepareStatement(
+                    "INSERT IGNORE INTO friend(self_id, friend_id, back) "
+                    "VALUES (?, ?, ?) "));
+            stmt2->setInt(1, to);
+            stmt2->setInt(2, from);
+            stmt2->setString(3, "");
+            std::unique_ptr<sql::ResultSet> res2(stmt2->executeQuery());
+            if (!res2) {
+                return Result<void>::Error(ErrorCodes::MYSQL_UNKNOWN_ERROR);
+            }
+
+            return Result<void>::OK();
+        });
+    }
+
+    using ArrayUserInfo = std::vector<std::shared_ptr<UserInfo>>;
+    Result<ArrayUserInfo> GetFriendList(int uid) {
+        return executeWithConn<ArrayUserInfo>([&](sql::Connection* conn) {
+            ArrayUserInfo                           user_info_list;
+            std::unique_ptr<sql::PreparedStatement> stmt(conn->prepareStatement(
+                "select user.uid, user.name, user.email, user.nick, "
+                "user.desc, user.sex, user.icon,  friend.back as "
+                "remark from friend join user on friend.friend_id = user.uid "
+                "where friend.self_id = ? "));
+            stmt->setInt(1, uid);
+            std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+            while (res->next()) {
+                auto user_info   = std::make_shared<UserInfo>();
+                user_info->uid   = res->getInt("uid");
+                user_info->name  = res->getString("name");
+                user_info->email = res->getString("email");
+                user_info->nick  = res->getString("nick");
+                user_info->desc  = res->getString("desc");
+                user_info->sex   = res->getInt("sex");
+                user_info->icon  = res->getString("icon");
+                user_info_list.push_back(user_info);
+            }
+            return Result<ArrayUserInfo>::OK(user_info_list);
         });
     }
 

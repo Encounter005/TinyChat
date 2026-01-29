@@ -1,9 +1,9 @@
 #ifndef USERREPOSITORY_H_
 #define USERREPOSITORY_H_
 
-#include "common/singleton.h"
-#include "common/result.h"
 #include "common/UserMessage.h"
+#include "common/result.h"
+#include "common/singleton.h"
 #include "infra/RedisManager.h"
 #include <memory>
 #include <string>
@@ -13,7 +13,7 @@ class UserRepository : public SingleTon<UserRepository> {
 
 public:
     // Read operations with caching
-    static Result<UserInfo> getUserById(int uid);
+    static Result<UserInfo>    getUserById(int uid);
     static Result<std::string> getEmailByName(const std::string& name);
 
     // Read operation for authentication (bypasses cache for security)
@@ -25,10 +25,24 @@ public:
         const std::string& pwd);
     static Result<void> resetPassword(
         const std::string& name, const std::string& new_pass);
-
+    static Result<void> AddFriendApply(const int& from, const int& to);
+    static Result<void> AuthFriendApply(const int& from, const int& to);
+    static Result<void> AddFriend(
+        const int& from, const int& to, const std::string& back_name);
     // Direct cache manipulation
     static void clearUserCache(int uid);
-    static void UserIpWithServer(const std::string& ip, const std::string& server_name);
+    static void BindUserIpWithServer(
+        const int& uid, const std::string& server_name);
+    static void                UnBindUserIpWithServer(const int& uid);
+    static Result<std::string> FindUserIpServerByUid(const int& uid);
+    static Result<std::vector<std::shared_ptr<ApplyInfo>>> GetApplyList(
+        int uid);
+    using ArrayUserInfo = std::vector<std::shared_ptr<UserInfo>>;
+    static Result<ArrayUserInfo> GetFriendList(
+        int uid);
+
+    static Result<void> SaveOfflineMessage(int uid, const std::string& msg);
+    static Result<std::vector<std::string>> GetOfflineMessages(int uid);
 
 private:
     UserRepository()  = default;
