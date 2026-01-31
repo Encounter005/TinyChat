@@ -1,4 +1,4 @@
-add_executable(GateServer GateServer.cpp)
+add_executable(GateServer main.cpp)
 target_link_libraries(
   GateServer PRIVATE backend_core spdlog::spdlog ${Boost_LIBRARIES} ${JSONCPP_LIBRARIES}
                      ${_GRPC_GRPCPP}  ${HIREDIS_LIBRARIES})
