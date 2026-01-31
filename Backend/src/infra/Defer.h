@@ -2,9 +2,10 @@
 #define DEFER_H_
 #include <functional>
 
+template<typename F>
 class Defer {
 public:
-    explicit Defer(std::function<void()> func) : func_(std::move(func)) {}
+    explicit Defer(F&& func) : func_(std::forward<F>(func)) {}
 
     Defer(Defer&& other) noexcept : func_(std::move(other.func_)) {
         other.func_ = nullptr;
@@ -15,7 +16,7 @@ public:
     Defer& operator=(Defer&&)      = delete;
 
     ~Defer() noexcept {
-        if (func_) {
+        if (active_) {
             try {
                 func_();
             } catch (...) {
@@ -25,7 +26,8 @@ public:
     }
 
 private:
-    std::function<void()> func_;
+        F func_;
+        bool active_ = true;
 };
 
 
