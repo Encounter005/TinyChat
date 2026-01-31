@@ -52,10 +52,18 @@ public:
     bool        ExistsKey(const std::string& key);
     std::string HGet(const std::string& key, const std::string& hkey);
     void        Close();
-    long long HIncrBy(const std::string& hkey, const std::string& field, long long delta);
-    bool LRange(const std::string& key, int start, int stop, std::vector<std::string>& values);
+    long long   HIncrBy(
+          const std::string& hkey, const std::string& field, long long delta);
+    bool LRange(
+        const std::string& key, int start, int stop,
+        std::vector<std::string>& values);
+    std::string AcquireLock(
+        const std::string& lock_name, int lock_timout, int acquire_timeout);
+    bool ReleaseLock(const std::string& lock_name, const std::string& id);
 
 private:
+    // @brief: 为每个锁分配一个uuid
+    std::string generateUUID();
     RedisManager();
     std::unique_ptr<RedisConPool> _pool;
 };

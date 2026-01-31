@@ -3,9 +3,14 @@
 #include "LogManager.h"
 #include "RedisConPool.h"
 #include "hiredis.h"
+#include "read.h"
+#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <string>
 
 RedisManager::RedisManager() {
     auto globalConfig = ConfigManager::getInstance();
@@ -25,19 +30,11 @@ RedisManager::~RedisManager() {
 bool RedisManager::Get(const std::string& key, std::string& value) {
     RedisConnGuard guard(_pool.get());
     redisContext*  context = guard.get();
-    if (!context) {
-        LOG_ERROR("[RedisManager] Get failed: No available connection");
-        return false;
-    }
-
-    redisReply* reply
-        = (redisReply*) redisCommand(context, "GET %s", key.c_str());
+    redisReply* reply   = (redisReply*) redisCommand(context, "GET %s", key.c_str());
     if (reply == nullptr) {
         LOG_ERROR("[RedisManager] Get failed: Command error for key: {}", key);
         return false;
     }
-
-
 
     if (reply->type != REDIS_REPLY_STRING) {
         LOG_ERROR(
@@ -323,7 +320,9 @@ long long RedisManager::HIncrBy(
     return new_value;
 }
 
-bool RedisManager::LRange(const std::string& key, int start, int stop, std::vector<std::string>& values) {
+bool RedisManager::LRange(
+    const std::string& key, int start, int stop,
+    std::vector<std::string>& values) {
     RedisConnGuard guard(_pool.get());
     redisContext*  context = guard.get();
     if (!context) return false;
@@ -331,12 +330,15 @@ bool RedisManager::LRange(const std::string& key, int start, int stop, std::vect
     redisReply* reply = (redisReply*) redisCommand(
         context, "LRANGE %s %d %d", key.c_str(), start, stop);
     if (reply == nullptr) {
-        LOG_ERROR("[RedisManager] LRANGE failed: command error for key: {}", key);
+        LOG_ERROR(
+            "[RedisManager] LRANGE failed: command error for key: {}", key);
         return false;
     }
 
     if (reply->type != REDIS_REPLY_ARRAY) {
-        LOG_ERROR("[RedisManager] LRANGE failed: wrong type: {}, expected array", reply->type);
+        LOG_ERROR(
+            "[RedisManager] LRANGE failed: wrong type: {}, expected array",
+            reply->type);
         freeReplyObject(reply);
         return false;
     }
@@ -345,6 +347,68 @@ bool RedisManager::LRange(const std::string& key, int start, int stop, std::vect
         values.push_back(reply->element[i]->str);
     }
     freeReplyObject(reply);
-    LOG_INFO("[RedisManager] LRANGE success: key: {}, count: {}", key, values.size());
+    LOG_INFO(
+        "[RedisManager] LRANGE success: key: {}, count: {}",
+        key,
+        values.size());
     return true;
+}
+
+std::string RedisManager::AcquireLock(
+    const std::string& lock_name, int lock_timeout, int acquire_timeout) {
+    std::string id       = generateUUID();
+    std::string lock_key = "lock:" + lock_name;
+    auto        end_time = std::chrono::steady_clock::now()
+                    + std::chrono::seconds(acquire_timeout);
+    RedisConnGuard guard(_pool.get());
+    redisContext*  context = guard.get();
+    while (std::chrono::steady_clock::now() < end_time) {
+        redisReply* reply = (redisReply*) redisCommand(
+            context,
+            "SET %s %s NX EX %d",
+            lock_key.c_str(),
+            id.c_str(),
+            lock_timeout);
+        if (reply != nullptr) {
+            if (reply->type == REDIS_REPLY_STATUS
+                && std::string(reply->str) == "OK") {
+                freeReplyObject(reply);
+                return id;
+            }
+            freeReplyObject(reply);
+        }
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(1));   // 防止忙等待
+    }
+
+    return "";
+}
+bool RedisManager::ReleaseLock(
+    const std::string& lock_name, const std::string& id) {
+    std::string    lock_key = "lock:" + lock_name;
+    RedisConnGuard guard(_pool.get());
+    redisContext*  context = guard.get();
+
+    // Lua Script: 检查锁表示是否匹配，匹配则删除
+    const char* lua_script = "if redis.call('get', KEYS[1]) == ARGV[1] then \
+                                return redis.call('del', KEYS[1]) \
+                             else \
+                                return 0 \
+                             end";
+    redisReply* reply      = (redisReply*) redisCommand(
+        context, "EVAL %s 1 %s %s", lua_script, lock_key.c_str(), id.c_str());
+    bool success = false;
+    if (reply != nullptr) {
+        if (reply->type == REDIS_REPLY_INTEGER && reply->integer == 1) {
+            success = true;
+        }
+
+        freeReplyObject(reply);
+    }
+    return success;
+}
+
+std::string RedisManager::generateUUID() {
+    auto uuid = boost::uuids::random_generator()();
+    return boost::uuids::to_string(uuid);
 }
