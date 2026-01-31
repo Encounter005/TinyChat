@@ -1,5 +1,7 @@
 #include "FileServer.h"
+#include "CallData.h"
 #include "UploadCallData.h"
+#include "DownloadCallData.h"
 #include "file.grpc.pb.h"
 #include "infra/LogManager.h"
 #include <grpcpp/security/server_credentials.h>
@@ -17,8 +19,10 @@ void FileServer::SetupServer() {
         _host + ":" + _port, grpc::InsecureServerCredentials());
 
     builder.RegisterService(_service.get());
-    builder.SetMaxReceiveMessageSize(1024 * 1024 * 1024);   // 1GB
-    _cq     = builder.AddCompletionQueue();
+    builder.SetMaxReceiveMessageSize(1024 * 1024 * 1024 * 10);   // 10GB
+    for (int i = 0; i < _cq_num; ++i) {
+        _cqs.emplace_back(builder.AddCompletionQueue());
+    }
     _server = builder.BuildAndStart();
 
     LOG_INFO("[FileServer] Server listening on {}:{}", _host, _port);
@@ -27,34 +31,46 @@ void FileServer::SetupServer() {
 void FileServer::Run(const std::string& host, const std::string& port) {
     _host = host, _port = port;
     SetupServer();
-    _event_loop = std::thread(&FileServer::StartEventLoop, this);
-    auto call_data = new UploadCallData(_service.get(), _cq.get());
 
-    _event_loop.join();
+    for (int i = 0; i < _cq_num; ++i) {
+        _threads.emplace_back(&FileServer::StartEventLoop, this, i);
+    }
+
+    for (int i = 0; i < _cq_num; ++i) {
+        new UploadCallData(_service.get(), _cqs[i].get());
+        new DownloadCallData(_service.get(), _cqs[i].get());
+    }
+
+    for (auto& t : _threads) {
+        t.join();
+    }
+
 
     LOG_INFO("[FileServer] Server stopped");
 }
 
-void FileServer::StartEventLoop() {
+void FileServer::StartEventLoop(int idx) {
+    auto& cq = _cqs[idx];
     void* tag;
     bool  ok;
-
-    while (true) {
-        if (!_cq->Next(&tag, &ok)) {
-            LOG_ERROR("[FileServer] CQ shutdown");
-            break;
-        }
-
-        static_cast<UploadCallData*>(tag)->Proceed(ok);
+    while (cq->Next(&tag, &ok)) {
+        auto* call = static_cast<CallData*>(tag);
+        call->Proceed(ok);
     }
 }
 
 void FileServer::Stop() {
-    if (_server) {
-        _server->Shutdown();
-        _cq->Shutdown();
-        if (_event_loop.joinable()) {
-            _event_loop.join();
-        }
+    if (!_server) {
+        return;
     }
+    _server->Shutdown();
+    for (auto& cq : _cqs) {
+        cq->Shutdown();
+    }
+
+    for (auto& t : _threads) {
+        if (t.joinable()) t.join();
+    }
+    _cqs.clear();
+    _server.reset();
 }

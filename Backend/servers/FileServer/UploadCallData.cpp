@@ -1,10 +1,12 @@
 #include "UploadCallData.h"
+#include "BackPressureManager.h"
 #include "FileWorkerPool.h"
 #include "TaskQueue.h"
 #include "const.h"
 #include "file.pb.h"
 #include "infra/LogManager.h"
 #include <grpcpp/support/status.h>
+
 
 UploadCallData::UploadCallData(
     FileTransport::AsyncService* service, grpc::ServerCompletionQueue* cq)
@@ -36,8 +38,15 @@ void UploadCallData::Proceed(bool ok) {
             _response.set_success(true);
             _response.set_message("OK");
 
+            BackPressureManager::getInstance()->notify_all();
+
             _reader.Finish(_response, grpc::Status::OK, this);
             return;
+        }
+
+
+        if(_request.has_chunk()) {
+            BackPressureManager::getInstance()->wait_if_needed(_request.chunk().size());
         }
 
         new UploadCallData(_service, _cq);
@@ -50,8 +59,10 @@ void UploadCallData::Proceed(bool ok) {
             FileWorkerPool::getInstance()->Submit(
                 FsTask::createMeta(_current_filename, _current_md5));
         } else if (_request.has_chunk()) {
+
             FileWorkerPool::getInstance()->Submit(
-                FsTask::createData(_current_md5, _request.chunk()));
+                FsTask::createData(
+                    _current_md5, std::move(*_request.mutable_chunk())));
         }
 
         // 继续读

@@ -46,18 +46,9 @@ enum class TaskType {
 enum class CallState {
     CREATE,      // 创建调用
     PROCESS,     // 处理请求
+    STREAM,
     FINISH,      // 完成调用
-    FINISH_DONE  // 完成（待删除）
 };
 
-// Session
-struct UploadSession {
-    std::string file_md5;
-    std::string file_name;
-    std::unique_ptr<ServerAsyncWriter<UploadResponse>> writer;
-    std::atomic<int> pending_chunks{0};
-    std::condition_variable cv;
-    bool completed = false;
-};
 
 #endif   // CONST_H_

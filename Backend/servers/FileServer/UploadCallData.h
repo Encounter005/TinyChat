@@ -1,15 +1,17 @@
 #ifndef UPLOADCALLDATA_H_
 #define UPLOADCALLDATA_H_
 
+#include "CallData.h"
 #include "const.h"
 #include "infra/LogManager.h"
+#include <condition_variable>
 
-class UploadCallData {
+class UploadCallData : public CallData {
 public:
     UploadCallData(
         FileTransport::AsyncService* service, grpc::ServerCompletionQueue* cq);
 
-    void Proceed(bool ok);
+    void Proceed(bool ok) override;
 
 private:
     FileTransport::AsyncService* _service;

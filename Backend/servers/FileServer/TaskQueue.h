@@ -7,19 +7,25 @@
 class FileWorker;
 
 struct FsTask {
-    TaskType    type;
-    std::string file_name;
-    std::string file_md5;
-    std::string data;
+    TaskType                     type;
+    std::string                  file_name;
+    std::string                  file_md5;
+    std::shared_ptr<std::string> data;
+
+
 
     static FsTask createMeta(const std::string& name, const std::string& md5) {
-        return {TaskType::META, name, md5, ""};
+        return {TaskType::META, name, md5, nullptr};
     }
     static FsTask createData(const std::string& md5, const std::string& chunk) {
-        return {TaskType::DATA, "", md5, chunk};
+        return {TaskType::DATA, "", md5, std::make_shared<std::string>(chunk)};
+    }
+
+    static FsTask createData(const std::string& md5, const std::string&& chunk) {
+        return {TaskType::DATA, "", md5, std::make_shared<std::string>(std::move(chunk))};
     }
     static FsTask createEnd(const std::string& md5) {
-        return {TaskType::END, "", md5, ""};
+        return {TaskType::END, "", md5, nullptr};
     }
 };
 

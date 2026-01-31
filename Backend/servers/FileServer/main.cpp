@@ -4,6 +4,7 @@
 #include "const.h"
 #include "FileTransportServiceImpl.h"
 #include "infra/LogManager.h"
+#include "FileIndexManager.h"
 #include <iostream>
 
 auto main(int argc, char *argv[]) -> int {
@@ -25,6 +26,8 @@ auto main(int argc, char *argv[]) -> int {
     // LOG_INFO("[FileServer] listening on {}", addr);
 
     // server->Wait();
+
+    FileIndexManager::getInstance()->build_index_from_disk("./uploads/");
     auto host = config["FileServer"]["host"];
     auto port = config["FileServer"]["port"];
     FileServer::getInstance()->Run(host, port);

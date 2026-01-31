@@ -16,22 +16,24 @@ public:
     void Run(const std::string& host, const std::string& port);
     void Stop();
     ~FileServer();
+
 private:
     FileServer();
 
     void SetupServer();
-    void StartEventLoop();
+    void StartEventLoop(int idx);
     void ProceedCalls();
 
 private:
-    std::string _host;
-    std::string _port;
+    std::string             _host;
+    std::string             _port;
     std::unique_ptr<Server> _server;
-    std::unique_ptr<ServerCompletionQueue> _cq;
-    std::unique_ptr<FileTransport::AsyncService> _service;
-    std::thread _event_loop;
-    std::unordered_map<std::string, UploadSession> _sessions;
-    std::mutex _sessions_mtx;
+    // std::unique_ptr<ServerCompletionQueue> _cq;
+    std::vector<std::unique_ptr<ServerCompletionQueue>> _cqs;
+    std::vector<std::thread>                            _threads;
+    std::unique_ptr<FileTransport::AsyncService>        _service;
+    // std::thread                                         _event_loop;
+    int _cq_num = 4;
 };
 
 
