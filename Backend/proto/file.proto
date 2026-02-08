@@ -6,8 +6,11 @@ service FileTransport {
   // 客户端流式上传
   rpc UploadFile(stream UploadRequest) returns (UploadResponse);
   rpc DownloadFile(DownloadRequest) returns (stream DownloadResponse);
-}
 
+// 新增：断点查询接口
+rpc QueryUploadStatus(QueryUploadRequest) returns (UploadStatus);
+rpc QueryDownloadStatus(QueryDownloadRequest) returns (DownloadStatus);
+}
 
 message UploadRequest {
   oneof data {
@@ -20,6 +23,7 @@ message FileMeta {
   string file_name = 1;
   int64 total_size = 2;
   string file_md5 = 3;   // 作为任务分发的哈希依据
+  int64 resume_offset = 4;     // 新增：续传时的起始偏移量（可选）
 }
 
 message UploadResponse {
@@ -36,4 +40,38 @@ message DownloadResponse {
 
 message DownloadRequest {
     string file_name = 1;
+    int64 start_offset = 2;      // 新增：从指定偏移量开始下载
+}
+
+// 新增：分块信息
+message ChunkInfo {
+    int32 chunk_index = 1;      // 分块序号（0-based）
+    string chunk_md5 = 2;        // 分块的MD5校验值
+    int64 chunk_offset = 3;      // 分块在文件中的起始字节偏移
+}
+
+// 新增：上传状态响应
+message UploadStatus {
+    bool has_breakpoint = 1;     // 是否存在断点记录
+    int64 resume_offset = 2;     // 建议的续传起始偏移量
+    repeated ChunkInfo uploaded_chunks = 3;  // 已上传完成的分块列表
+    int64 last_update_time = 4;  // 最后更新时间戳
+}
+
+// 新增：下载状态响应
+message DownloadStatus {
+    bool has_breakpoint = 1;
+    int64 resume_offset = 2;     // 服务器记录的已下载位置
+    int64 file_size = 3;         // 文件总大小
+}
+
+// 新增：上传断点查询请求
+message QueryUploadRequest {
+    string file_md5 = 1;
+}
+
+// 新增：下载断点查询请求
+message QueryDownloadRequest {
+    string file_name = 1;
+    string session_id = 2;       // 客户端会话ID，用于区分不同下载会话
 }
