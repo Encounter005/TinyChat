@@ -17,7 +17,7 @@ static constexpr const char* UPLOAD_PROGRESS_PREFIX = "upload_progress:";
 static constexpr const char* UPLOAD_BLOCK_PREFIX    = "upload_blocks:";
 static constexpr int         DEFAULT_EXPIRE_SECONDS = 24 * 3600;   // 24小时
 static constexpr int         BLOCK_CHECKPOINT_EXPIRE_SECONDS = 7 * 24 * 3600;
-using int64                                                  = long long;
+using int64                                                  = int64_t;
 
 std::string FileRepository::FormatProgressKey(const std::string& file_md5) {
     return std::string(UPLOAD_PROGRESS_PREFIX) + file_md5;
