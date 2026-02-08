@@ -11,12 +11,12 @@ struct FsTask {
     std::string                  file_name;
     std::string                  file_md5;
     std::shared_ptr<std::string> data;
+    int64                        resume_offset = 0;  // 新增：续传偏移量
 
-
-
-    static FsTask createMeta(const std::string& name, const std::string& md5) {
-        return {TaskType::META, name, md5, nullptr};
+    static FsTask createMeta(const std::string& name, const std::string& md5, int64 offset = 0) {
+        return {TaskType::META, name, md5, nullptr, offset};
     }
+
     static FsTask createData(const std::string& md5, const std::string& chunk) {
         return {TaskType::DATA, "", md5, std::make_shared<std::string>(chunk)};
     }
@@ -24,6 +24,7 @@ struct FsTask {
     static FsTask createData(const std::string& md5, const std::string&& chunk) {
         return {TaskType::DATA, "", md5, std::make_shared<std::string>(std::move(chunk))};
     }
+
     static FsTask createEnd(const std::string& md5) {
         return {TaskType::END, "", md5, nullptr};
     }

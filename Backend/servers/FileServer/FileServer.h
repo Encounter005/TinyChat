@@ -9,6 +9,8 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
+
 class FileServer : public SingleTon<FileServer> {
     friend class SingleTon<FileServer>;
 
@@ -28,11 +30,9 @@ private:
     std::string             _host;
     std::string             _port;
     std::unique_ptr<Server> _server;
-    // std::unique_ptr<ServerCompletionQueue> _cq;
     std::vector<std::unique_ptr<ServerCompletionQueue>> _cqs;
     std::vector<std::thread>                            _threads;
     std::unique_ptr<FileTransport::AsyncService>        _service;
-    // std::thread                                         _event_loop;
     int _cq_num = 4;
 };
 

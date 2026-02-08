@@ -3,29 +3,37 @@
 
 #include "CallData.h"
 #include "const.h"
-#include "infra/LogManager.h"
-#include <condition_variable>
+#include "file.grpc.pb.h"
+#include <grpcpp/completion_queue.h>
+#include <grpcpp/server_context.h>
+#include <grpcpp/support/status.h>
+
 
 class UploadCallData : public CallData {
 public:
     UploadCallData(
-        FileTransport::AsyncService* service, grpc::ServerCompletionQueue* cq);
+        FileService::FileTransport::AsyncService* service,
+        grpc::ServerCompletionQueue*              cq);
+    ~UploadCallData() = default;
 
     void Proceed(bool ok) override;
 
 private:
-    FileTransport::AsyncService* _service;
-    ServerCompletionQueue*       _cq;
+    FileService::FileTransport::AsyncService* _service;
+    grpc::ServerCompletionQueue*              _cq;
 
-    ServerContext                                    _ctx;
-    ServerAsyncReader<UploadResponse, UploadRequest> _reader;
+    grpc::ServerContext _ctx;
+    grpc::ServerAsyncReader<
+        FileService::UploadResponse, FileService::UploadRequest>
+        _reader;
 
-    UploadRequest  _request;
-    UploadResponse _response;
+    FileService::UploadRequest  _request;
+    FileService::UploadResponse _response;
 
     CallState   _state;
     std::string _current_md5;
     std::string _current_filename;
+    int64       _resume_offset = 0;
 };
 
 #endif   // UPLOADCALLDATA_H_
