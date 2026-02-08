@@ -55,6 +55,7 @@ void QueryDownloadCallData::Proceed(bool ok) {
             try {
                 file_size = fs::file_size(found_path);
             } catch (const std::exception& e) {
+                _state = CallState::FINISH;
                 LOG_ERROR(
                     "[QueryDownloadCallData] Failed to get file size: {}",
                     e.what());

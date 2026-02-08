@@ -46,7 +46,8 @@ void FileIndexManager::build_index_from_disk(
                 size_t      pos           = disk_filename.find("_");
                 if (pos != std::string::npos && pos > 0) {
                     std::string original_name = disk_filename.substr(pos + 1);
-                    add_file(original_name, entry.path().filename());
+                    std::string path = directory_path + entry.path().filename().string();
+                    add_file(original_name, path);
                     ++count;
                 }
             }
