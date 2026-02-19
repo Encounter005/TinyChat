@@ -29,6 +29,7 @@ service ChatService {
     rpc SendChatMsg(SendChatMsgReq)       returns (SendChatMsgRsp) {}
     rpc NotifyAuthFriend(AuthFriendReq)   returns (AuthFriendRsp) {}
     rpc NotifyTextChatmsg(TextChatMsgReq) returns (TextChatMsgRsp) {}
+    rpc NotifyKickUser(KickUserReq) returns (KickUserRsp) {}
 }
 
 service VarifyService {
@@ -141,4 +142,13 @@ message TextChatMsgRsp {
     int32 fromuid                  = 2;
     int32 touid                    = 3;
     repeated TextChatData textmsgs = 4;
+}
+
+message KickUserReq {
+    int32 uid = 1;
+}
+
+message KickUserRsp {
+    ErrorCode error = 1;
+    int32 uid = 2;
 }

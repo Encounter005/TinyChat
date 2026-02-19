@@ -1,5 +1,6 @@
 #include "ChatServer.h"
 #include "LogicHandler.h"
+#include "MessagePersistenceService.h"
 #include "Messsage.h"
 #include "SessionManager.h"
 #include "UserManager.h"
@@ -10,6 +11,7 @@
 #include "grpcClient/StatusClient.h"
 #include "infra/AsioIOServicePool.h"
 #include "infra/LogManager.h"
+#include "repository/ChatServerRepository.h"
 #include "service/UserService.h"
 #include "session.h"
 #include <boost/system/detail/error_code.hpp>
@@ -31,9 +33,13 @@ ChatServer::ChatServer(
     , _dispatcher(std::make_shared<Dispatcher>())
     , _server_info(server_info) {
     LOG_INFO("[ChatServer] listening the port: {}", port);
+
+    _persistence_service = std::make_shared<MessagePersistenceService>(_accept_ioc, 5);
+    _persistence_service->Start();
+
     Register();
     DoAccept();
-    // StartHeartBeat(); // 心跳检测
+    StartHeartBeat();   // 心跳检测
 }
 
 void ChatServer::Register() {
@@ -62,15 +68,23 @@ void ChatServer::Register() {
             LogicHandler::AuthFriendApply(this->_server_info, session, msg);
         });
     // TextMsg
-    _dispatcher->Register(MsgId::ID_TEXT_CHAT_MSG_REQ, [this](auto session, const auto& msg){
-        LogicHandler::HandleChatTextMsg(this->_server_info, session, msg);
-    });
+    _dispatcher->Register(
+        MsgId::ID_TEXT_CHAT_MSG_REQ, [this](auto session, const auto& msg) {
+            LogicHandler::HandleChatTextMsg(this->_server_info, session, msg);
+        });
+    // Heartbeat
+    _dispatcher->Register(
+        MsgId::ID_HEART_BEAT_REQ, [this](auto session, const auto& msg) {
+            LogicHandler::HandleHeartBeat(session, msg);
+        });
 }
 
 void ChatServer::DoAccept() {
     auto& ioc     = AsioIOServicePool::getInstance()->GetIOService();
     auto  session = std::make_shared<Session>(ioc, _server_info.name);
     session->SetDispatcher(_dispatcher);
+    session->SetHeartbeatConfig(
+        _server_info.heartbeat_timeout, _server_info.heartbeat_probe_wait);
     session->SetCloseCallback(
         [mgr = SessionManager::getInstance()](const std::string& id) {
             mgr->Remove(id);
@@ -89,11 +103,21 @@ void ChatServer::DoAccept() {
 }
 
 void ChatServer::StartHeartBeat() {
-    _heartbeat_timer.expires_after(std::chrono::seconds(5));
+    _heartbeat_timer.expires_after(
+        std::chrono::seconds(_server_info.heartbeat_check_interval));
     _heartbeat_timer.async_wait([this](const boost::system::error_code& ec) {
         if (!ec) {
-            SessionManager::getInstance()->CheckTimeouts(30);
+            SessionManager::getInstance()->CheckTimeouts(
+                _server_info.heartbeat_timeout);
             StartHeartBeat();
         }
     });
+}
+
+ChatServer::~ChatServer() {
+    if (_persistence_service) {
+        LOG_INFO("[ChatServer] Flushing cached messages before shutdown");
+        _persistence_service->Stop();
+        _persistence_service->ForcePersistOnce();
+    }
 }

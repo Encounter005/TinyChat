@@ -102,3 +102,20 @@ Status ChatServiceImpl::NotifyTextChatmsg(
 
     return Status::OK;
 }
+
+Status ChatServiceImpl::NotifyKickUser(
+    ServerContext* context, const KickUserReq* request, KickUserRsp* response) {
+
+    auto uid = request->uid();
+    LOG_INFO("[ChatServiceImpl] Received kick user request for uid: {}", uid);
+
+    Defer defer([request, response]() {
+        response->set_error(ErrorCode::SUCCESS);
+        response->set_uid(request->uid());
+    });
+
+    UserManager::getInstance()->KickUser(
+        uid, "Your account has been logged in from another device");
+    LOG_INFO("[ChatServiceImpl] User {} kicked successfully", uid);
+    return Status::OK;
+}

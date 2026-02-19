@@ -164,6 +164,9 @@ public:
     // @brief: 移除有序集合中的成员
     long long ZRem(const std::string& key, const std::string& member);
 
+    // @brief: 扫描匹配的键
+    bool Scan(const std::string& pattern, std::vector<std::string>& keys);
+
 private:
     // @brief: 为每个锁分配一个uuid
     std::string generateUUID();

@@ -27,3 +27,16 @@ int ChatServerRepository::GetConnectionCount(const std::string &server_name) {
 void ChatServerRepository::RestConnection(const std::string &server_name) {
     RedisManager::getInstance()->HSet(LOGIN_COUNT, server_name, "0");
 }
+
+void ChatServerRepository::ActivateServer(const std::string& server_name) {
+    RedisManager::getInstance()->HSet(ACTIVATE, server_name, "1");
+}
+
+bool ChatServerRepository::isServerActivated(const std::string& server_name) {
+    auto res = RedisManager::getInstance()->HGet(ACTIVATE, server_name);
+    return !res.empty();
+}
+
+void ChatServerRepository::DeactivateServer(const std::string& server_name) {
+    RedisManager::getInstance()->HDel(ACTIVATE, server_name);
+}

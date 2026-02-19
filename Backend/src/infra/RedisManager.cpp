@@ -1498,3 +1498,42 @@ long long RedisManager::ZRem(
 
     return count;
 }
+
+
+bool RedisManager::Scan(
+    const std::string& pattern, std::vector<std::string>& keys) {
+    RedisConnGuard guard(_pool.get());
+    redisContext*  context = guard.get();
+
+    if (!context) {
+        return false;
+    }
+
+    std::string cursor = "0";
+    keys.clear();
+
+    do {
+        redisReply* reply = (redisReply*) redisCommand(
+            context,
+            "SCAN %s MATCH %s COUNT 100",
+            cursor.c_str(),
+            pattern.c_str());
+
+        if (!reply || reply->type == REDIS_REPLY_ERROR) {
+            if (reply) freeReplyObject(reply);
+            return false;
+        }
+
+        cursor = reply->element[0]->str;
+
+        redisReply* keys_reply = reply->element[1];
+        for (size_t i = 0; i < keys_reply->elements; ++i) {
+            keys.push_back(keys_reply->element[i]->str);
+        }
+
+        freeReplyObject(reply);
+
+    } while (cursor != "0");
+
+    return true;
+}

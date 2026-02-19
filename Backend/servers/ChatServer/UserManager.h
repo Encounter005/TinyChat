@@ -12,6 +12,7 @@ public:
         void Bind(int uid, std::shared_ptr<Session> session);
         void UnBind(int uid);
         std::shared_ptr<Session> GetSession(int uid);
+        void KickUser(int uid, const std::string& reason);
 
 private:
         UserManager() = default;

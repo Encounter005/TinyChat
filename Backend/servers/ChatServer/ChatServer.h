@@ -1,6 +1,7 @@
 #ifndef CHATSERVER_H_
 #define CHATSERVER_H_
 
+#include "MessagePersistenceService.h"
 #include "SessionManager.h"
 #include "common/ChatServerInfo.h"
 #include "dispatcher.h"
@@ -15,7 +16,9 @@ using boost::asio::ip::tcp;
 
 class ChatServer {
 public:
-    ChatServer (boost::asio::io_context& accept_ioc, unsigned short port, const ChatServerInfo& server_info);
+    explicit ChatServer (boost::asio::io_context& accept_ioc, unsigned short port, const ChatServerInfo& server_info);
+
+    ~ChatServer();
 
 private:
     void DoAccept();
@@ -28,6 +31,7 @@ private:
     boost::asio::steady_timer _heartbeat_timer;
     std::shared_ptr<Dispatcher> _dispatcher;
     ChatServerInfo _server_info;
+    std::shared_ptr<MessagePersistenceService> _persistence_service;
 };
 
 #endif   // CHATSERVER_H_

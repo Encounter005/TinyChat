@@ -5,7 +5,6 @@
 #include "infra/ConfigManager.h"
 #include "infra/LogManager.h"
 #include "infra/RedisManager.h"
-#include "message.pb.h"
 #include "repository/ChatServerRepository.h"
 #include <boost/uuid.hpp>
 #include <boost/uuid/random_generator.hpp>
@@ -16,9 +15,6 @@
 #include <mutex>
 #include <sstream>
 #include <string>
-
-
-
 
 std::string generate_unique_string() {
     boost::uuids::uuid uuid = boost::uuids::random_generator()();
@@ -35,6 +31,10 @@ ChatServerInfo StatusServiceImpl::SelectChatServer() {
     int                         MIN = INT_MAX;
     ChatServerInfo              best_server;
     for (const auto& [name, server] : _servers) {
+        if(!ChatServerRepository::isServerActivated(name)) { // 如果当前的服务器没有在线，就不注册当前服务器的信息
+            LOG_WARN("[StatusServer] {} is offline! ", name);
+            continue;
+        }
         auto count = ChatServerRepository::GetConnectionCount(name);
         if(count < MIN) {
             MIN = count;

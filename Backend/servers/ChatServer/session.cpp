@@ -4,11 +4,13 @@
 #include "UserManager.h"
 #include "common/const.h"
 #include "dispatcher.h"
-#include "infra/LogManager.h"
 #include "infra/Defer.h"
+#include "infra/LogManager.h"
 #include "repository/ChatServerRepository.h"
 #include "repository/UserRepository.h"
 #include <boost/asio.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/system/detail/error_code.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -18,7 +20,12 @@
 #include <netinet/in.h>
 
 Session::Session(boost::asio::io_context& ioc, const std::string& server_name)
-    : _socket(ioc), _strand(boost::asio::make_strand(ioc)), _user_uid(-1), _server_name(server_name) {
+    : _socket(ioc)
+    , _strand(boost::asio::make_strand(ioc))
+    , _user_uid(-1)
+    , _server_name(server_name)
+    , _hb_state(HeartbeatState::NORMAL)
+    , _last_probe_time(0) {
     auto id = boost::uuids::random_generator()();
     _uuid   = boost::uuids::to_string(id);
     _last_active.store(
@@ -81,9 +88,12 @@ void Session::DoClose() {
             self->_socket.close(ec);
 
             // session 移除
-            SessionManager::getInstance()->Remove(self->Id());
+            // SessionManager::getInstance()->Remove(self->Id());
             // server 连接数 -1
-            ChatServerRepository::DecrConnection(self->_server_name);
+            if (self->_login_counted) {
+                ChatServerRepository::DecrConnection(self->_server_name);
+                self->_login_counted = false;
+            }
 
             // 回调
             if (self->_on_close) {
@@ -99,7 +109,7 @@ void Session::DoClose() {
             self->_user_uid = -1;
         }
 
-        // 👇 以后你在这里随便加 return，都不会破坏清理
+        self->_close_after_write = false;
     });
 }
 
@@ -108,7 +118,10 @@ void Session::DoRead() {
     _socket.async_read_some(
         boost::asio::buffer(_read_buf),
         boost::asio::bind_executor(
-            _strand, [self](const boost::system::error_code& ec, std::size_t bytes) { self->OnRead(ec, bytes); }));
+            _strand,
+            [self](const boost::system::error_code& ec, std::size_t bytes) {
+                self->OnRead(ec, bytes);
+            }));
 }
 
 void Session::OnRead(const boost::system::error_code& ec, std::size_t bytes) {
@@ -135,9 +148,10 @@ void Session::DoWrite() {
     boost::asio::async_write(
         _socket,
         boost::asio::buffer(_write_queue.front()),
-        boost::asio::bind_executor(_strand, [self](boost::system::error_code ec, std::size_t bytes) {
-            self->OnWrite(ec, bytes);
-        }));
+        boost::asio::bind_executor(
+            _strand, [self](boost::system::error_code ec, std::size_t bytes) {
+                self->OnWrite(ec, bytes);
+            }));
 }
 
 void Session::OnWrite(const boost::system::error_code& ec, std::size_t) {
@@ -147,6 +161,14 @@ void Session::OnWrite(const boost::system::error_code& ec, std::size_t) {
     }
 
     _write_queue.pop_front();
+
+    // 检查是否需要在写队列清空后关闭
+    if (_close_after_write && _write_queue.empty()) {
+        LOG_WARN("[Session] Write queue empty, closing after notify");
+        DoClose();
+        return;
+    }
+
     if (!_write_queue.empty()) {
         DoWrite();
     }
@@ -248,4 +270,120 @@ void Session::PostClose() {
 
 void Session::SetUid(int uid) {
     _user_uid = uid;
+}
+
+void Session::CloseWithNotify(MsgId msg_id, const std::string& body) {
+    auto self = shared_from_this();
+    boost::asio::post(_strand, [self, msg_id, body]() {
+        if (self->_closed) {
+            return;
+        }
+
+        LOG_INFO(
+            "[Session] Closing session {} with notify, msg_id: {}",
+            self->Id(),
+            static_cast<uint16_t>(msg_id));
+
+        // send message
+        self->Send(msg_id, body);
+        self->_close_after_write = true;
+    });
+}
+
+void Session::MarkAsLoggedIn(const std::string& server_name) {
+    auto self = shared_from_this();
+    boost::asio::post(_strand, [self, server_name]() {
+        if (!self->_login_counted) {
+            self->_login_counted = true;
+            ChatServerRepository::IncrConnection(server_name);
+            LOG_INFO(
+                "[Session] Marked as logged in, incremented connection for {}",
+                server_name);
+        }
+    });
+}
+
+
+void Session::OnHeartBeatRequest() {
+    // 处理客户端心跳请求
+    LOG_INFO("[HeartBeat] Received heartbeat from session {}", _uuid);
+
+    // 如果处于探测状态，恢复为正常状态
+    HeartbeatState old_state = _hb_state.load();
+    if (old_state == HeartbeatState::NORMAL
+        || old_state == HeartbeatState::PROBING) {
+        _hb_state.store(HeartbeatState::NORMAL);
+    }
+}
+
+
+void Session::SendHeartbeatProbe() {
+    auto self = shared_from_this();
+    boost::asio::post(_strand, [self]() {
+        if (self->_closed.load()) return;
+
+        // 标记为探测状态
+        self->_hb_state.store(HeartbeatState::PROBING);
+
+        auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       Clock::now().time_since_epoch())
+                       .count();
+        self->_last_probe_time.store(now);
+
+        Json::Value root;
+        root["error"]     = static_cast<int>(ErrorCodes::SUCCESS);
+        root["probe"]     = true;
+        root["timestamp"] = static_cast<int64_t>(std::time(nullptr));
+        LOG_INFO(
+            "[HeartBeat] Sending heartbeat probe to session {}", self->_uuid);
+
+        self->Send(MsgId::ID_HEART_BEAT_REQ, root.toStyledString());
+
+
+        // 设置定时器, 如果客户端未响应，触发超时
+        auto timer = std::make_shared<boost::asio::steady_timer>(
+            self->_socket.get_executor(),
+            std::chrono::seconds(self->_probe_wait_time));
+
+        timer->async_wait(
+            boost::asio::bind_executor(
+                self->_strand,
+                [self, timer](const boost::system::error_code& ec) {
+                    if(!ec && self->_hb_state.load() == HeartbeatState::PROBING) {
+                        LOG_WARN("[HeartBeat] Session {} probe timeout", self->_uuid);
+                        self->OnProbeTimeout();
+                    }
+
+                }));
+    });
+}
+
+
+// @brief: 检查是否需要发送探测包
+bool Session::NeedsProbing(int idle_seconds) const {
+    HeartbeatState state = _hb_state.load();
+    if(state == HeartbeatState::PROBING) {
+        return false;
+    }
+
+    if(idle_seconds >= _heartbeat_timeout) {
+        return true;
+    }
+
+    if(idle_seconds >= _heartbeat_timeout - 15 && state == HeartbeatState::SUSPICIOUS) {
+        return true; // 可疑状态接近超时，可以提前探测
+    }
+
+    return false;
+}
+
+void Session::OnProbeTimeout() {
+    LOG_WARN("[HeartBeat] session {} probe timeout, closing connection", _uuid);
+    PostClose();
+}
+
+
+void Session::SetHeartbeatConfig(int timeout, int probe_wait) {
+    _heartbeat_timeout = timeout;
+    _probe_wait_time = probe_wait;
 }

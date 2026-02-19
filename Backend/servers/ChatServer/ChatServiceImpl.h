@@ -12,6 +12,8 @@ using message::AddFriendRsp;
 using message::AuthFriendReq;
 using message::AuthFriendRsp;
 using message::ChatService;
+using message::KickUserReq;
+using message::KickUserRsp;
 using message::SendChatMsgReq;
 using message::SendChatMsgRsp;
 using message::TextChatMsgReq;
@@ -29,6 +31,9 @@ public:
     Status NotifyTextChatmsg(
         ServerContext* context, const TextChatMsgReq* request,
         TextChatMsgRsp* response) override;
+    Status NotifyKickUser(
+        ServerContext* context, const KickUserReq* request,
+        KickUserRsp* response) override;
 
 private:
 };

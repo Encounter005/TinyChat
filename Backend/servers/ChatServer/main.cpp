@@ -36,24 +36,35 @@ int main(int argc, char* argv[]) {
     }
     try {
         std::string    ServerName   = argv[1];
-        auto           globalConfig = ConfigManager::getInstance();
-        auto           port_str     = (*globalConfig)[ServerName]["port"];
-        auto           rpc_port     = (*globalConfig)[ServerName]["RPCport"];
+        auto           globalConfig = *ConfigManager::getInstance();
+        auto           port_str     = globalConfig[ServerName]["port"];
+        auto           rpc_port     = globalConfig[ServerName]["RPCport"];
         unsigned short port
             = static_cast<unsigned short>(atoi(port_str.c_str()));
 
         ChatServerRepository::RestConnection(ServerName);
 
-        auto rpc_server = StartRPCServer(
-            (*globalConfig)[ServerName]["host"] + ":" + rpc_port);
+        auto rpc_server
+            = StartRPCServer(globalConfig[ServerName]["host"] + ":" + rpc_port);
         std::thread grpc_thread([&rpc_server]() { rpc_server->Wait(); });
 
         boost::asio::io_context ioc;
 
         ChatServerInfo server_info;
-        server_info.host = (*globalConfig)[ServerName]["host"];
+        server_info.host = globalConfig[ServerName]["host"];
         server_info.port = port_str;
         server_info.name = ServerName;
+
+        server_info.heartbeat_check_interval
+            = std::stoi(globalConfig[ServerName]["heartbeat_check_interval"]);
+        server_info.heartbeat_interval
+            = std::stoi(globalConfig[ServerName]["heartbeat_interval"]);
+        server_info.heartbeat_timeout
+            = std::stoi(globalConfig[ServerName]["heartbeat_timeout"]);
+        server_info.heartbeat_probe_wait
+            = std::stoi(globalConfig[ServerName]["heartbeat_probe_wait"]);
+
+        ChatServerRepository::ActivateServer(server_info.name);
 
         // 必须保存 server 对象，不要写成临时对象
         ChatServer server(ioc, port, server_info);
@@ -74,6 +85,8 @@ int main(int argc, char* argv[]) {
         ioc.run();
 
         grpc_thread.join();
+
+        ChatServerRepository::DeactivateServer(server_info.name);
 
 
     } catch (const std::exception& e) {
