@@ -153,6 +153,6 @@ int MessagePersistenceRepository::GetChatMessageTable(
 
 std::string MessagePersistenceRepository::GetChatMessageTableName(
     int from_uid, int to_uid) {
-    return "chat_messags_"
+    return "chat_messages_"
            + std::to_string(GetChatMessageTable(from_uid, to_uid));
 }

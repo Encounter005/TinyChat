@@ -25,7 +25,7 @@ private:
     std::atomic<bool> _is_running;
 
     // 每次批量处理的消息数量
-    static const int BATCH_SIZE = 10;
+    static const int BATCH_SIZE = 200;
 };
 
 

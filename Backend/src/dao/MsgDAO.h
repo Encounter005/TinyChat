@@ -5,6 +5,7 @@
 #include "common/singleton.h"
 #include "dao/MySqlDAO.h"
 #include <cppconn/connection.h>
+
 class MsgDAO : public SingleTon<MsgDAO>, public MySqlDAO {
     friend class SingleTon<MsgDAO>;
 
@@ -12,80 +13,80 @@ public:
     Result<void> handleMessage(
         const std::string&              table_name,
         const std::vector<std::string>& messages) {
+
         return executeWithConn<void>([&](sql::Connection* conn) {
             if (messages.empty()) {
                 return Result<void>::OK();
             }
-            // 解析第一条消息获取字段
-            Json::Value  first_msg;
+
             Json::Reader reader;
-            if (!reader.parse(messages[0], first_msg)) {
-                LOG_ERROR("Failed to parse message JSON");
-                return Result<void>::Error(ErrorCodes::ERROR_JSON);
-            }
+            int          success_count = 0;
+            int          error_count   = 0;
 
-            int from_uid = first_msg["fromuid"].asInt();
-            int to_uid   = first_msg["touid"].asInt();
-
-            // 构建批量插入 SQL
-            std::ostringstream sql;
-            sql << "INSERT INTO " << table_name
-                << " (msgid, from_uid, to_uid, content) VALUES ";
-
-            // 构建占位符
-            for (size_t i = 0; i < messages.size(); ++i) {
-                if (i > 0) sql << ", ";
-                sql << "(?, ?, ?, ?)";
-            }
-
-            std::unique_ptr<sql::PreparedStatement> stmt(
-                conn->prepareStatement(sql.str()));
-
-            // 设置参数
-            int param_index = 1;
+            // 逐条插入消息
             for (const auto& msg_json : messages) {
                 Json::Value msg_root;
                 if (!reader.parse(msg_json, msg_root)) {
-                    LOG_WARN("Failed to parse message, skipping");
+                    LOG_WARN("Failed to parse message JSON, skipping");
+                    error_count++;
                     continue;
                 }
 
-                // 提取 msgid（从 text_array 中获取第一个消息的 msgid）
+                // 提取字段
+                int from_uid = msg_root["fromuid"].asInt();
+                int to_uid   = msg_root["touid"].asInt();
+
+                std::string msgid;
                 if (msg_root["text_array"].isArray()
                     && msg_root["text_array"].size() > 0) {
-                    std::string msgid
-                        = msg_root["text_array"][0]["msgid"].asString();
-                    stmt->setString(param_index++, msgid);
+                    msgid = msg_root["text_array"][0]["msgid"].asString();
                 } else {
                     // 如果没有 msgid，生成一个
-                    std::string msgid = "msg_"
-                                        + std::to_string(std::time(nullptr))
-                                        + "_" + std::to_string(rand());
-                    stmt->setString(param_index++, msgid);
+                    msgid = "msg_" + std::to_string(std::time(nullptr)) + "_"
+                            + std::to_string(rand());
                 }
 
-                stmt->setInt(param_index++, from_uid);
-                stmt->setInt(param_index++, to_uid);
-                stmt->setString(param_index++, msg_json);
+                // 构建单条插入 SQL（使用普通 INSERT，允许相同 msgid）
+                std::string sql = "INSERT INTO " + table_name
+                                  + " (msgid, from_uid, to_uid, content) "
+                                    "VALUES (?, ?, ?, ?)";
+
+                try {
+                    std::unique_ptr<sql::PreparedStatement> stmt(
+                        conn->prepareStatement(sql));
+
+                    stmt->setString(1, msgid);
+                    stmt->setInt(2, from_uid);
+                    stmt->setInt(3, to_uid);
+                    stmt->setString(4, msg_json);
+
+                    stmt->executeUpdate();
+                    success_count++;
+
+                } catch (sql::SQLException& e) {
+                    // 记录错误但继续处理下一条
+                    LOG_ERROR(
+                        "Failed to insert message (msgid: {}): {}",
+                        msgid,
+                        e.what());
+                    error_count++;
+                }
             }
 
-            // 执行插入
-            try {
-                stmt->executeUpdate();
+            // 记录处理结果
+            if (success_count > 0) {
                 LOG_INFO(
-                    "Batch inserted {} messages to {}",
-                    messages.size(),
-                    table_name);
+                    "Message persistence to {}: {} inserted, {} error",
+                    table_name,
+                    success_count,
+                    error_count);
+            }
+
+            // 只要有至少一条成功，就返回 OK
+            if (success_count > 0) {
                 return Result<void>::OK();
-            } catch (sql::SQLException& e) {
-                // 检查是否是重复键错误
-                if (e.getErrorCode() == 1062) {
-                    LOG_WARN(
-                        "Duplicate msgid found, some messages may already "
-                        "exist");
-                    return Result<void>::OK();   // 幂等性，视为成功
-                }
-                LOG_ERROR("MySQL insert failed: {}", e.what());
+            } else {
+                LOG_ERROR("All messages failed to insert to {}", table_name);
                 return Result<void>::Error(ErrorCodes::SQL_ERROR);
             }
         });
