@@ -52,7 +52,6 @@ void UserController::RegisterUser(std::shared_ptr<HttpConnection> connection) {
 }
 
 
-
 void UserController::ResetUserPwd(std::shared_ptr<HttpConnection> connection) {
     auto body
         = beast::buffers_to_string(connection->GetRequest().body().data());

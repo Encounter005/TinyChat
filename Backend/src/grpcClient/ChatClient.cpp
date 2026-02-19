@@ -78,7 +78,7 @@ TextChatMsgRsp ChatClient::NotifyTextChatMsg(
     const Json::Value& res) {
     TextChatMsgRsp rsp;
     rsp.set_error(ErrorCode::SUCCESS);
-    Defer defer([&req, &rsp]() {
+    Defer                    defer([&req, &rsp]() {
         rsp.set_fromuid(req.fromuid());
         rsp.set_touid(req.touid());
         for (const auto& text_data : req.textmsgs()) {
@@ -98,5 +98,39 @@ TextChatMsgRsp ChatClient::NotifyTextChatMsg(
         return rsp;
     }
 
+    return rsp;
+}
+
+KickUserRsp ChatClient::NotifyKickUser(
+    const std::string& server_name, const KickUserReq& req) {
+    KickUserRsp rsp;
+
+    ClientContext            context;
+    StubFactory<ChatService> stubFactory(_pools.at(server_name));
+    auto                     stub = stubFactory.create();
+
+    LOG_INFO(
+        "[ChatClient] Sending kick user request to {}, uid: {}",
+        server_name,
+        req.uid());
+
+    Status status = stub->NotifyKickUser(&context, req, &rsp);
+
+    if (!status.ok()) {
+        LOG_WARN(
+            "[ChatClient] Failed to kick user {} on server {}: {}",
+            req.uid(),
+            server_name,
+            status.error_message());
+        rsp.set_error(ErrorCode::RPC_FAILED);
+    } else {
+        LOG_INFO(
+            "[ChatClient] Successfully kicked user {} on server {}",
+            req.uid(),
+            server_name);
+        rsp.set_error(ErrorCode::SUCCESS);
+    }
+
+    rsp.set_uid(req.uid());
     return rsp;
 }

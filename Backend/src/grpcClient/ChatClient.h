@@ -21,6 +21,8 @@ using message::TextChatData;
 using message::TextChatMsgReq;
 using message::TextChatMsgRsp;
 using message::ChatService;
+using message::KickUserReq;
+using message::KickUserRsp;
 
 
 class ChatClient : public SingleTon<ChatClient> {
@@ -38,6 +40,7 @@ public:
     TextChatMsgRsp NotifyTextChatMsg(
         const std::string& server_ip, const TextChatMsgReq& req,
         const Json::Value& res);
+    KickUserRsp NotifyKickUser(const std::string& server_name, const KickUserReq& req);
 
 private:
     explicit ChatClient();

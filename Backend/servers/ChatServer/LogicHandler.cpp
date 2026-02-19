@@ -8,9 +8,11 @@
 #include "grpcClient/ChatClient.h"
 #include "grpcClient/StatusClient.h"
 #include "infra/Defer.h"
+#include "infra/DistLock.h"
 #include "infra/LogManager.h"
 #include "infra/RedisManager.h"
 #include "repository/ChatServerRepository.h"
+#include "repository/MessagePersistenceRepository.h"
 #include "repository/UserRepository.h"
 #include "service/UserService.h"
 #include <json/reader.h>
@@ -36,7 +38,7 @@ bool LogicHandler::ParseJson(const std::string &data, Json::Value &root) {
 void LogicHandler::HandleLogin(
     const ChatServerInfo &server_info, std::shared_ptr<Session> session,
     const Message &msg) {
-    Json::Value  src, root;
+    Json::Value src, root;
     if (!ParseJson(msg.body, src)) {
         return;
     }
@@ -48,6 +50,59 @@ void LogicHandler::HandleLogin(
         LOG_WARN("[ChatServer] token error");
         return;
     }
+
+
+    std::string lock_name = "user:kick:" + std::to_string(uid);
+    DistLock    lock(lock_name, 10, 5);
+
+    if (!lock.isLocked()) {
+        LOG_ERROR("[ChatServer] Failed to acquire lock for user {}", uid);
+    }
+
+    auto res_server_name = UserRepository::FindUserIpServerByUid(uid);
+    if (res_server_name.IsOK()) {
+        std::string old_server = res_server_name.Value();
+        if (old_server == server_info.name) {
+            // 场景1：用户在当前服务器重复登录
+            LOG_INFO(
+                "[ChatServer] User {} already on this server, kicking old "
+                "session",
+                uid);
+            UserManager::getInstance()->KickUser(
+                uid, "Your account has been logged in from another device");
+        } else {
+            // 场景2：用户在其他服务器，需要跨服务器踢人
+            LOG_INFO(
+                "[ChatServer] User {} on server {}, kicking via RPC",
+                uid,
+                old_server);
+
+            message::KickUserReq kick_req;
+            kick_req.set_uid(uid);
+
+            auto kick_rsp = ChatClient::getInstance()->NotifyKickUser(
+                old_server, kick_req);
+
+            if (kick_rsp.error() != ErrorCode::SUCCESS) {
+                LOG_WARN(
+                    "[ChatServer] Failed to kick user {} from server {} "
+                    "(continuing login)",
+                    uid,
+                    old_server);
+                // RPC 失败仍然继续登录，避免因网络问题影响用户体验
+            } else {
+                LOG_INFO(
+                    "[ChatServer] Successfully kicked user {} from server {}",
+                    uid,
+                    old_server);
+            }
+        }
+    } else {
+        // 场景3：用户首次登录或 Redis 中没有记录
+        LOG_INFO(
+            "[ChatServer] User {} not found in any server, new login", uid);
+    }
+
 
     auto res = UserService::GetUserBase(uid);
     if (res.IsOK()) {
@@ -97,11 +152,6 @@ void LogicHandler::HandleLogin(
     }
 
 
-    auto old_session = UserManager::getInstance()->GetSession(uid);
-    if (old_session) {
-        LOG_INFO("User {} already login, kicking old session", uid);
-        old_session->PostClose();
-    }
 
     // Bind session with user_uid
     session->SetUid(uid);
@@ -110,7 +160,7 @@ void LogicHandler::HandleLogin(
 
     // modify connection count
     auto server_name = server_info.name;
-    ChatServerRepository::IncrConnection(server_name);
+    session->MarkAsLoggedIn(server_info.name);
 
     // save user login's server
     UserRepository::BindUserIpWithServer(uid, server_name);
@@ -124,18 +174,19 @@ void LogicHandler::HandleLogin(
     auto offline_msgs_res = UserRepository::GetOfflineMessages(uid);
     if (offline_msgs_res.IsOK()) {
         auto msgs = offline_msgs_res.Value();
-        for (const auto& msg_body : msgs) {
+        for (const auto &msg_body : msgs) {
             Message offline_msg;
-            offline_msg.msg_id = static_cast<uint16_t>(MsgId::ID_NOTIFY_TEXT_CHAT_MSG_REQ);
+            offline_msg.msg_id
+                = static_cast<uint16_t>(MsgId::ID_NOTIFY_TEXT_CHAT_MSG_REQ);
             offline_msg.body = msg_body;
-            LogicHandler::HandleChatTextMsg(server_info,  session, offline_msg);
+            LogicHandler::HandleChatTextMsg(server_info, session, offline_msg);
         }
     }
 }
 
 void LogicHandler::HandleSearch(
     std::shared_ptr<Session> session, const Message &msg) {
-    Json::Value  src, root;
+    Json::Value src, root;
     if (!ParseJson(msg.body, src)) {
         return;
     }
@@ -159,7 +210,7 @@ void LogicHandler::HandleSearch(
 void LogicHandler::AddFriendApply(
     const ChatServerInfo &server_info, std::shared_ptr<Session> session,
     const Message &msg) {
-    Json::Value  src, root;
+    Json::Value src, root;
 
     if (!ParseJson(msg.body, src)) {
         return;
@@ -225,7 +276,7 @@ void LogicHandler::AddFriendApply(
 void LogicHandler::AuthFriendApply(
     const ChatServerInfo &server_info, std::shared_ptr<Session> session,
     const Message &msg) {
-    Json::Value  src, root;
+    Json::Value src, root;
 
     if (!ParseJson(msg.body, src)) {
         return;
@@ -297,7 +348,7 @@ void LogicHandler::AuthFriendApply(
 void LogicHandler::HandleChatTextMsg(
     const ChatServerInfo &server_info, std::shared_ptr<Session> session,
     const Message &msg) {
-    Json::Value  src, root;
+    Json::Value src, root;
 
     if (!ParseJson(msg.body, src)) {
         return;
@@ -310,6 +361,17 @@ void LogicHandler::HandleChatTextMsg(
     root["text_array"]       = arrays;
     root["fromuid"]          = uid;
     root["touid"]            = touid;
+
+    // Cache Messages
+    auto cache_res = MessagePersistenceRepository::SaveChatMessage(
+        uid, touid, root.toStyledString());
+    
+    if (!cache_res.IsOK()) {
+        LOG_WARN("[ChatServer] Failed to save message to cache: {} -> {}", uid, touid);
+        // 继续处理，缓存失败不应影响消息推送
+    } else {
+        LOG_DEBUG("[ChatServer] Message cached: {} -> {}", uid, touid);
+    }
 
     Defer defer([&root, session, &msg]() {
         auto id = static_cast<MsgId>(msg.msg_id);
@@ -330,16 +392,15 @@ void LogicHandler::HandleChatTextMsg(
     server_name = res_server_name.Value();
     LOG_DEBUG("server_name is {}", server_name);
     if (server_name == server_info.name) {
-        LOG_DEBUG("======run here=======");
         auto res_session = UserManager::getInstance()->GetSession(touid);
         if (res_session) {
             auto id = static_cast<MsgId>(msg.msg_id);
-            LOG_DEBUG("Send msg is: {}", root.toStyledString());
             res_session->Send(
                 MsgId::ID_NOTIFY_TEXT_CHAT_MSG_REQ, root.toStyledString());
         } else {
-             // User mapped to this server but no session (inconsistent/offline)
-             UserRepository::SaveOfflineMessage(touid, root.toStyledString());
+            // User mapped to this server but no session
+            // (inconsistent/offline)
+            UserRepository::SaveOfflineMessage(touid, root.toStyledString());
         }
         return;
     }
@@ -359,4 +420,13 @@ void LogicHandler::HandleChatTextMsg(
 
     ChatClient::getInstance()->NotifyTextChatMsg(
         server_name, text_msg_req, root);
+}
+
+void LogicHandler::HandleHeartBeat(std::shared_ptr<Session> session, const Message& msg) {
+    session->OnHeartBeatRequest();
+
+    Json::Value root;
+    root["error"] = static_cast<int>(ErrorCodes::SUCCESS);
+    root["timestamp"] = static_cast<int64_t>(std::time(nullptr));
+    session->Send(MsgId::ID_HEARTBEAT_RSP, root.toStyledString());
 }

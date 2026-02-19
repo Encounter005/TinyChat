@@ -24,6 +24,7 @@ public:
     static void HandleChatTextMsg(
         const ChatServerInfo& server_info, std::shared_ptr<Session> session,
         const Message& msg);
+    static void HandleHeartBeat(std::shared_ptr<Session> session, const Message& msg);
 
 private:
     static bool ParseJson(const std::string& data, Json::Value& root);
