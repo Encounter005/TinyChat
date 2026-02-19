@@ -1,12 +1,28 @@
 cmake_minimum_required(VERSION 3.5)
 project(Backend)
 
+# =============================================================================
+# Build Configuration Summary
+# =============================================================================
+message(STATUS "")
+message(STATUS "============================================================================")
+message(STATUS "TinyChat Backend - Build Configuration")
+message(STATUS "============================================================================")
+message(STATUS "Build Directory:       ${CMAKE_BINARY_DIR}")
+message(STATUS "Source Directory:      ${CMAKE_SOURCE_DIR}")
+message(STATUS "C++ Standard:          C++${CMAKE_CXX_STANDARD}")
+message(STATUS "Compiler:              ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "Build Type:            ${CMAKE_BUILD_TYPE}")
+
 #compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # setting compiler
 set(CMAKE_CXX_COMPILER "g++")
 # setting C++ Standard
 set(CMAKE_CXX_STANDARD 17)
+
+message(STATUS "Compile Flags:         -g -O1 -fcoroutines -Wall -Wextra -fsanitize=address")
+message(STATUS "")
 
 add_compile_options(
     -g
@@ -42,7 +58,7 @@ message("Using protobuf: ${PROTOBUF_VERSION}")
 
 # Grpc library
 find_package(gRPC REQUIRED)
-message("Using gRPC: ${gRPC_VERSION}")
+message(STATUS "gRPC Version:          ${gRPC_VERSION}")
 set(_GRPC_GRPCPP gRPC::grpc++)
 
 # boost library
@@ -53,9 +69,8 @@ set(Boost_USE_STATIC_RUNTIME OFF)
 find_package(Boost 1.89.0 COMPONENTS filesystem REQUIRED)
 
 if(Boost_FOUND)
-    message(STATUS "Boost found!")
-    message(STATUS "Boost include dirs: ${Boost_INCLUDE_DIRS}")
-    message(STATUS "Boost library dirs: ${Boost_LIBRARY_DIRS}")
+    message(STATUS "Boost Version:         ${Boost_VERSION}")
+    message(STATUS "Boost Components:      filesystem")
 else()
     message(FATAL_ERROR "Could not find Boost!")
 endif()
@@ -63,9 +78,15 @@ endif()
 #spdlog
 # pkg_check_modules(SPDLOG REQUIRED spdlog)
 find_package(spdlog CONFIG REQUIRED)
+message(STATUS "spdlog:                FOUND")
 
 # Redis library
 pkg_check_modules(HIREDIS REQUIRED hiredis)
+message(STATUS "hiredis:               FOUND")
+
+#openssl
+find_package(OpenSSL REQUIRED)
+message(STATUS "OpenSSL:               FOUND")
 
 #mysql
 # 1. 寻找头文件路径
@@ -77,16 +98,31 @@ find_path(MYSQL_INCLUDE_DIR mysql_connection.h
 find_library(MYSQL_LIBRARY NAMES mysqlcppconn)
 
 # 3. 打印调试信息（可选，方便你排查 Ninja 报错）
-message(STATUS "MySQL Include Dir: ${MYSQL_INCLUDE_DIR}")
-message(STATUS "MySQL Library: ${MYSQL_LIBRARY}")
+message(STATUS "MySQL Connector/C++:   FOUND")
 
 # 4. 检查是否找到
 if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
     message(FATAL_ERROR "MySQL Connector/C++ not found!")
 endif()
 
+message(STATUS "")
+message(STATUS "============================================================================")
+message(STATUS "Dependencies Configuration Complete")
+message(STATUS "============================================================================")
+message(STATUS "")
+
 # setting source code directory
+message(STATUS "Configuring project subdirectories...")
+message(STATUS "")
 add_subdirectory(proto)
 add_subdirectory(src)
 add_subdirectory(servers)
 add_subdirectory(TestCases)
+
+message(STATUS "")
+message(STATUS "============================================================================")
+message(STATUS "Configuration Summary Complete")
+message(STATUS "============================================================================")
+message(STATUS "To build, run: make -j$(nproc)")
+message(STATUS "============================================================================")
+message(STATUS "")

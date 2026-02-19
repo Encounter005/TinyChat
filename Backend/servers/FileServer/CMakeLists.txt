@@ -14,6 +14,8 @@
 #   - Breakpoint-based resumable upload/download (NEW)
 # ============================================================================
 
+message(STATUS "[Target]      FileServer (file transfer server with resumable support)")
+
 # Create the FileServer executable with all source files
 # Note: Header files (.h) should not be listed in add_executable
 add_executable(FileServer
@@ -49,7 +51,5 @@ target_link_libraries(FileServer
 # Build Information
 # ============================================================================
 
-message(STATUS "Building FileServer")
-message(STATUS "  Executable:         FileServer")
-message(STATUS "  Linked Libraries:   backend_core, spdlog, Boost, JSONCpp, gRPC, Hiredis, OpenSSL")
+message(STATUS "  Features:           Resumable upload/download, back-pressure control")
 message(STATUS "")

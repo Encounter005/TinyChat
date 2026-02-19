@@ -1,3 +1,5 @@
+message(STATUS "[Configuring] Core Library (backend_core)")
+
 file(GLOB_RECURSE srcs CONFIGURE_DEPENDS
     core/*.cpp
     controller/*.cpp
@@ -10,6 +12,8 @@ file(GLOB_RECURSE srcs CONFIGURE_DEPENDS
 )
 
 add_library(backend_core STATIC ${srcs})
+
+message(STATUS "[Target]      backend_core (STATIC LIBRARY)")
 
 target_include_directories(backend_core
     PUBLIC
