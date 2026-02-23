@@ -91,6 +91,60 @@ public:
             }
         });
     }
+
+    Result<std::vector<std::string>> getRecentMessages(
+        int uid, int days, int limit) {
+
+        return executeWithConn<std::vector<std::string>>([&](sql::Connection* conn) {
+            std::vector<std::string> messages;
+            std::time_t now = std::time(nullptr);
+            std::time_t start_time = now - (days * 24 * 60 * 60);
+
+            std::vector<std::string> all_messages;
+
+            for (int table_id = 0; table_id < 16; ++table_id) {
+                std::string table_name = "chat_messages_" + std::to_string(table_id);
+
+                std::string sql = "SELECT content, created_at FROM " + table_name +
+                    " WHERE (from_uid = ? OR to_uid = ?) AND created_at >= FROM_UNIXTIME(?)"
+                    " ORDER BY created_at DESC LIMIT ?";
+
+                try {
+                    std::unique_ptr<sql::PreparedStatement> stmt(
+                        conn->prepareStatement(sql));
+                    stmt->setInt(1, uid);
+                    stmt->setInt(2, uid);
+                    stmt->setInt(3, static_cast<int>(start_time));
+                    stmt->setInt(4, limit);
+
+                    std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+                    while (res->next()) {
+                        all_messages.push_back(res->getString("content"));
+                    }
+                } catch (sql::SQLException& e) {
+                    LOG_DEBUG("Table {} query skipped: {}", table_name, e.what());
+                }
+            }
+
+            std::sort(all_messages.begin(), all_messages.end(),
+                [](const std::string& a, const std::string& b) {
+                    Json::Reader reader;
+                    Json::Value a_root, b_root;
+                    if (!reader.parse(a, a_root) || !reader.parse(b, b_root)) {
+                        return false;
+                    }
+                    return true;
+                });
+
+            size_t result_count = std::min(all_messages.size(), static_cast<size_t>(limit));
+            for (size_t i = 0; i < result_count; ++i) {
+                messages.push_back(all_messages[i]);
+            }
+
+            LOG_INFO("Retrieved {} recent messages for uid {}", messages.size(), uid);
+            return Result<std::vector<std::string>>::OK(messages);
+        });
+    }
 };
 
 #endif   // MESSAGEDAO_H_
