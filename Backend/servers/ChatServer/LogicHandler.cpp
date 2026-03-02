@@ -152,6 +152,27 @@ void LogicHandler::HandleLogin(
     }
 
 
+    auto recent_msgs_res
+        = MessagePersistenceRepository::GetRecentMessagesWithCache(uid, 7, 50);
+    if (recent_msgs_res.IsOK()) {
+        auto                     friend_messages = recent_msgs_res.Value();
+        std::vector<std::string> all_recent_messages;
+
+        for (const auto &fm : friend_messages) {
+            for (const auto &msg : fm.messages) {
+                all_recent_messages.push_back(msg);
+            }
+        }
+
+        if (!all_recent_messages.empty()) {
+            for (const auto &msg_json : all_recent_messages) {
+                root["recent_messsages"].append(msg_json);
+            }
+        }
+    } else {
+        LOG_WARN(
+            "Failed to get recent messages for uid {}, continuing login", uid);
+    }
 
     // Bind session with user_uid
     session->SetUid(uid);
@@ -365,9 +386,12 @@ void LogicHandler::HandleChatTextMsg(
     // Cache Messages
     auto cache_res = MessagePersistenceRepository::SaveChatMessage(
         uid, touid, root.toStyledString());
-    
+
     if (!cache_res.IsOK()) {
-        LOG_WARN("[ChatServer] Failed to save message to cache: {} -> {}", uid, touid);
+        LOG_WARN(
+            "[ChatServer] Failed to save message to cache: {} -> {}",
+            uid,
+            touid);
         // 继续处理，缓存失败不应影响消息推送
     } else {
         LOG_DEBUG("[ChatServer] Message cached: {} -> {}", uid, touid);
@@ -422,11 +446,12 @@ void LogicHandler::HandleChatTextMsg(
         server_name, text_msg_req, root);
 }
 
-void LogicHandler::HandleHeartBeat(std::shared_ptr<Session> session, const Message& msg) {
+void LogicHandler::HandleHeartBeat(
+    std::shared_ptr<Session> session, const Message &msg) {
     session->OnHeartBeatRequest();
 
     Json::Value root;
-    root["error"] = static_cast<int>(ErrorCodes::SUCCESS);
+    root["error"]     = static_cast<int>(ErrorCodes::SUCCESS);
     root["timestamp"] = static_cast<int64_t>(std::time(nullptr));
     session->Send(MsgId::ID_HEARTBEAT_RSP, root.toStyledString());
 }

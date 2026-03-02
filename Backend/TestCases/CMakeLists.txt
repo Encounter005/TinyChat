@@ -50,6 +50,24 @@ target_link_libraries(DownloadClient
         ${OPENSSL_LIBRARIES}
 )
 
+
+
+# ============================================================================
+# Test_DB Executable
+# ============================================================================
+message(STATUS "[Target]      Test (test client)")
+add_executable(Test_db test_db.cpp)
+
+target_link_libraries(Test_db
+    PRIVATE
+        backend_core
+        ${HIREDIS_LIBRARIES}
+        ${Boost_LIBRARIES}
+        ${JSONCPP_LIBRARIES}
+        ${_GRPC_GRPCPP}
+)
+
+
 # ============================================================================
 # Build Information
 # ============================================================================

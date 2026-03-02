@@ -1,10 +1,19 @@
 #include "MessagePersistenceRepository.h"
+#include "common/const.h"
+#include "common/result.h"
 #include "dao/MsgDAO.h"
+#include "infra/LogManager.h"
 #include "infra/RedisManager.h"
+#include "service/UserService.h"
+#include <json/reader.h>
+#include <json/writer.h>
 #include <string>
+#include <vector>
 const std::string MessagePersistenceRepository::CHAT_MSG_PREFIX  = "chat:msg:";
 const std::string MessagePersistenceRepository::CHAT_META_PREFIX = "chat:meta:";
-
+const std::string MessagePersistenceRepository::RECENT_MSG_PREFIX
+    = "recent:msgs:";
+const int MessagePersistenceRepository::CACHE_TTL_SECONDS = 7200;   // 2 hours
 
 Result<void> MessagePersistenceRepository::SaveChatMessage(
     int from_uid, int to_uid, const std::string& msg_json) {
@@ -155,4 +164,135 @@ std::string MessagePersistenceRepository::GetChatMessageTableName(
     int from_uid, int to_uid) {
     return "chat_messages_"
            + std::to_string(GetChatMessageTable(from_uid, to_uid));
+}
+
+
+Result<std::vector<FriendMessages>>
+MessagePersistenceRepository::GetRecentMessagesWithCache(
+    int uid, int days, int limit) {
+    auto friend_list_res = UserService::GetFriendList(uid);
+    if (!friend_list_res.IsOK()) {
+        LOG_WARN("Failed to get friend list for uid");
+        return Result<std::vector<FriendMessages>>::Error(
+            friend_list_res.Error());
+    }
+
+    auto                        friend_list = friend_list_res.Value();
+    std::vector<FriendMessages> result;
+    std::vector<int>            cache_miss_friends;
+
+    // get friend_info from cache
+    for (const auto& friend_info : friend_list) {
+        int  friend_uid = friend_info->uid;
+        auto cached_res = GetCachedFriendMessages(uid, friend_uid);
+
+        if (cached_res.IsOK()) {
+            FriendMessages fm{friend_uid, cached_res.Value()};
+            result.push_back(fm);
+        } else {
+            cache_miss_friends.push_back(friend_uid);
+        }
+    }
+
+    // query for database
+    if (!cache_miss_friends.empty()) {
+        LOG_DEBUG(
+            "Cache miss for {} friends, querying database",
+            cache_miss_friends.size());
+
+        auto db_res = MsgDAO::getInstance()->getRecentMessagesGroupedByFriend(
+            uid, days, limit);
+
+        if (db_res.IsOK()) {
+            auto db_friend_messages = db_res.Value();
+
+            for (const auto& db_fm : db_friend_messages) {
+                bool exists = false;
+                for (auto& existing_fm : result) {
+                    if (existing_fm.friend_uid == db_fm.friend_uid) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    result.push_back(db_fm);
+                    CacheFriendMessages(uid, db_fm.friend_uid, db_fm.messages);
+                }
+            }
+        }
+    }
+
+    LOG_INFO(
+        "Retrieved recent messages for uid {} (cache hits: {}, misses: {})",
+        uid,
+        friend_list.size() - cache_miss_friends.size(),
+        cache_miss_friends.size());
+
+    return Result<std::vector<FriendMessages>>::OK(result);
+}
+
+Result<void> MessagePersistenceRepository::CacheFriendMessages(
+    int uid, int friend_uid, const std::vector<std::string>& messages) {
+    if (messages.empty()) {
+        return Result<void>::OK();
+    }
+
+    Json::Value root;
+    for (const auto& message : messages) {
+        root.append(message);
+    }
+
+    Json::FastWriter writer;
+    std::string      messages_json = writer.write(root);
+
+    auto        redis = RedisManager::getInstance();
+    std::string key   = RECENT_MSG_PREFIX + std::to_string(uid) + ":"
+                      + std::to_string(friend_uid);
+
+    if (redis->SetEx(key, CACHE_TTL_SECONDS, messages_json)) {
+        LOG_WARN("Failed to cache recent messages: {} -> {}", uid, friend_uid);
+        return Result<void>::Error(ErrorCodes::REDIS_ERROR);
+    }
+
+    LOG_INFO(
+        "Cached recent messages: {} -> {} ({} messages, TTL: {})",
+        uid,
+        friend_uid,
+        messages.size(),
+        CACHE_TTL_SECONDS);
+    return Result<void>::OK();
+}
+
+Result<std::vector<std::string>>
+MessagePersistenceRepository::GetCachedFriendMessages(int uid, int friend_uid) {
+    auto        redis     = RedisManager::getInstance();
+    std::string cache_key = RECENT_MSG_PREFIX + std::to_string(uid) + ":"
+                            + std::to_string(friend_uid);
+    std::string cache_json;
+
+    if (!redis->Get(cache_key, cache_json)) {
+        LOG_DEBUG("Cache miss for recent messages: {} -> {}", uid, friend_uid);
+        return Result<std::vector<std::string>>::Error(ErrorCodes::REDIS_ERROR);
+    }
+
+    Json::Value  root;
+    Json::Reader reader;
+    if (!reader.parse(cache_json, root) || !root.isArray()) {
+        LOG_WARN("Invalid cached data format for {} -> {}", uid, friend_uid);
+        return Result<std::vector<std::string>>::Error(ErrorCodes::REDIS_ERROR);
+    }
+
+    std::vector<std::string> messages;
+
+    for (const auto& msg : root) {
+        messages.push_back(msg.asString());
+    }
+
+    LOG_INFO(
+        "Cache hit for recent messages: {} -> {} ({} messages)",
+        uid,
+        friend_uid,
+        messages.size());
+
+    return Result<std::vector<std::string>>::OK(messages);
 }
