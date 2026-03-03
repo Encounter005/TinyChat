@@ -110,6 +110,8 @@ void DownloadCallData::handleProcessState(bool ok) {
     FileRepository::SaveDownloadProgress(
         request_filename, _session_id, _current_offset);
 
+    _last_saved_offset = _current_offset;
+
     sendFileMetadata(request_filename, validation.file_size);
 
     // perforamnce metrics
@@ -127,13 +129,13 @@ void DownloadCallData::handleStreamState(bool ok) {
 }
 
 void DownloadCallData::handleFinishState() {
-    // 关闭文件流
     if (_file_stream.is_open()) {
         _file_stream.close();
     }
 
-    // 清除断点记录
-    if (!_session_id.empty() && !_request.file_name().empty()) {
+    // 只有完整下载成功时才删除断点
+    if (_download_completed && !_session_id.empty()
+        && !_request.file_name().empty()) {
         FileRepository::DeleteDownloadProgress(
             _request.file_name(), _session_id);
     }
@@ -272,7 +274,7 @@ void DownloadCallData::readAndSendChunk() {
 }
 
 bool DownloadCallData::shouldSaveBreakPoint() const {
-    return _current_offset % SAVE_BREAKPOINT_INTERVAL == 0;
+    return (_current_offset - _last_saved_offset) >= SAVE_BREAKPOINT_INTERVAL;
 }
 
 void DownloadCallData::saveDownloadBreakPoint() {
@@ -281,51 +283,46 @@ void DownloadCallData::saveDownloadBreakPoint() {
 
     FileRepository::UpdateDownloadProgress(
         _request.file_name(), _session_id, _current_offset);
+    _last_saved_offset = _current_offset;
 }
 
 void DownloadCallData::handleDownloadComplete() {
-    // 计算总耗时
     auto end_time = std::chrono::high_resolution_clock::now();
     _metrics.total_duration_ms
         = std::chrono::duration<double, std::milli>(end_time - _start_time)
               .count();
 
-    // 记录完成日志
     LOG_INFO(
         "[DownloadCallData] File streaming finished: {}, total bytes: {}",
         _request.file_name(),
         _current_offset);
 
-    // 输出性能汇总
     _metrics.log_summary();
 
-    // 状态转换
-    _state = CallState::FINISH;
+    _download_completed = true;
+    _state              = CallState::FINISH;
     _writer.Finish(Status::OK, this);
 }
 
 void DownloadCallData::handleDownloadCancelled() {
-    // 计算总耗时
     auto end_time = std::chrono::high_resolution_clock::now();
     _metrics.total_duration_ms
         = std::chrono::duration<double, std::milli>(end_time - _start_time)
               .count();
 
-    // 保存断点
     if (!_session_id.empty() && !_request.file_name().empty()) {
         FileRepository::UpdateDownloadProgress(
             _request.file_name(), _session_id, _current_offset);
+        _last_saved_offset = _current_offset;
     }
 
-    // 记录取消日志
     LOG_INFO(
         "[DownloadCallData] Client cancelled at offset: {}", _current_offset);
 
-    // 输出性能汇总
     _metrics.log_summary();
 
-    // 状态转换
-    _state = CallState::FINISH;
+    _download_completed = false;
+    _state              = CallState::FINISH;
     _writer.Finish(Status::CANCELLED, this);
 }
 
@@ -377,14 +374,13 @@ void DownloadCallData::cleanup() {
 bool DownloadCallData::initializeDownloadSession(
     const std::string& filename, const std::string& file_path,
     int64_t start_offset, int64_t file_size) {
+    _session_id         = GenerateSessionID();
+    _start_offset       = start_offset;
+    _current_offset     = start_offset;
+    _file_size          = file_size;
+    _last_saved_offset  = start_offset;
+    _download_completed = false;
 
-    // 直接设置成员变量 (唯一数据源)
-    _session_id     = GenerateSessionID();
-    _start_offset   = start_offset;
-    _current_offset = start_offset;
-    _file_size      = file_size;
-
-    // 初始化性能监控
     _metrics            = DownloadPerformanceMetrics{};
     _metrics.session_id = _session_id;
     _metrics.file_name  = filename;

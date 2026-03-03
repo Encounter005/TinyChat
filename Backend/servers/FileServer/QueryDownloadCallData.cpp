@@ -72,7 +72,18 @@ void QueryDownloadCallData::Proceed(bool ok) {
                 = FileRepository::GetDownloadProgress(file_name, session_id);
 
             if (!progress_result.IsOK()) {
-                // 没有断点记录
+                progress_result
+                    = FileRepository::GetLatestDownloadProgress(file_name);
+                if (progress_result.IsOK()) {
+                    LOG_INFO(
+                        "[QueryDownloadCallData] Fallback to latest session: "
+                        "{}, offset={}",
+                        progress_result.Value().session_id,
+                        progress_result.Value().downloaded_bytes);
+                }
+            }
+
+            if (!progress_result.IsOK()) {
                 _response.set_has_breakpoint(false);
                 _response.set_resume_offset(0);
                 _response.set_file_size(file_size);
@@ -81,7 +92,7 @@ void QueryDownloadCallData::Proceed(bool ok) {
                     file_name);
             } else {
                 auto progress = progress_result.Value();
-                _response.set_has_breakpoint(true);
+                _response.set_has_breakpoint(progress.downloaded_bytes > 0);
                 _response.set_resume_offset(progress.downloaded_bytes);
                 _response.set_file_size(file_size);
 

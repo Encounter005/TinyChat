@@ -54,11 +54,19 @@ void QueryUploadCallData::Proceed(bool ok) {
                 resume_offset = verified_offset_result.Value();
             }
 
+            if(resume_offset < 0) {
+                resume_offset = 0;
+            }
+
+            if(resume_offset > progress.uploaded_bytes) {
+                resume_offset = progress.uploaded_bytes;
+            }
+
             // 获取已上传分块列表
             auto chunks_result = FileRepository::GetUploadedChunks(
                 file_md5, FileRepository::RESUME_BLOCK_SIZE);
 
-            _response.set_has_breakpoint(true);
+            _response.set_has_breakpoint(resume_offset > 0);
             _response.set_resume_offset(resume_offset);
             _response.set_last_update_time(progress.updated_at);
 

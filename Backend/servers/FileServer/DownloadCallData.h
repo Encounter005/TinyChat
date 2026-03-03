@@ -67,10 +67,13 @@ private:
     std::ifstream                                          _file_stream;
     std::vector<char>                                      _buffer;
 
-    std::string _session_id;           // 下载会话ID
-    int64_t     _current_offset = 0;   // 当前发送位置
-    int64_t     _start_offset   = 0;   // 起始偏移量
-    int64_t     _file_size      = 0;   // 文件总大小
+    std::string _session_id;               // 下载会话ID
+    int64_t     _current_offset     = 0;   // 当前发送位置
+    int64_t     _start_offset       = 0;   // 起始偏移量
+    int64_t     _file_size          = 0;   // 文件总大小
+    int64_t     _last_saved_offset  = 0;
+    bool        _download_completed = false;
+
 
     DownloadPerformanceMetrics                     _metrics;
     std::chrono::high_resolution_clock::time_point _start_time;

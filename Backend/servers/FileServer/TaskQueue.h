@@ -11,22 +11,23 @@ struct FsTask {
     std::string                  file_name;
     std::string                  file_md5;
     std::shared_ptr<std::string> data;
-    int64                        resume_offset = 0;  // 新增：续传偏移量
+    int64                        resume_offset = 0;
+    bool                         complete = true; // END 任务是否按完成态收尾
 
     static FsTask createMeta(const std::string& name, const std::string& md5, int64 offset = 0) {
-        return {TaskType::META, name, md5, nullptr, offset};
+        return {TaskType::META, name, md5, nullptr, offset, true};
     }
 
     static FsTask createData(const std::string& md5, const std::string& chunk) {
-        return {TaskType::DATA, "", md5, std::make_shared<std::string>(chunk)};
+        return {TaskType::DATA, "", md5, std::make_shared<std::string>(chunk), 0, true};
     }
 
     static FsTask createData(const std::string& md5, const std::string&& chunk) {
-        return {TaskType::DATA, "", md5, std::make_shared<std::string>(std::move(chunk))};
+        return {TaskType::DATA, "", md5, std::make_shared<std::string>(std::move(chunk)), 0, true};
     }
 
-    static FsTask createEnd(const std::string& md5) {
-        return {TaskType::END, "", md5, nullptr};
+    static FsTask createEnd(const std::string& md5, bool complete = true) {
+        return {TaskType::END, "", md5, nullptr, 0, complete};
     }
 };
 
