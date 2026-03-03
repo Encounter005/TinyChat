@@ -166,7 +166,7 @@ void LogicHandler::HandleLogin(
 
         if (!all_recent_messages.empty()) {
             for (const auto &msg_json : all_recent_messages) {
-                root["recent_messsages"].append(msg_json);
+                root["recent_messages"].append(msg_json);
             }
         }
     } else {
