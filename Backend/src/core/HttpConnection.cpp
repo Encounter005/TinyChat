@@ -10,7 +10,6 @@ tcp::socket& HttpConnection::GetSocket() {
     return _socket;
 }
 
-
 void HttpConnection::Start() {
     auto self = shared_from_this();
     http::async_read(
