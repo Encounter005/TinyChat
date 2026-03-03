@@ -1,4 +1,5 @@
 #include "FileRepository.h"
+#include "common/const.h"
 #include "hiredis.h"
 #include "infra/ConfigManager.h"
 #include "infra/LogManager.h"
@@ -53,8 +54,8 @@ std::string FileRepository::CalculateMD5(const std::string& data) {
 // ============================================================================
 
 Result<void> FileRepository::SaveUploadProgress(
-    const std::string& file_md5, const std::string& file_name, int total_size,
-    int uploaded_bytes, const std::string& status) {
+    const std::string& file_md5, const std::string& file_name,
+    int64_t total_size, int64_t uploaded_bytes, const std::string& status) {
 
     auto redisManager = RedisManager::getInstance();
     if (!redisManager) {
@@ -189,7 +190,7 @@ Result<UploadProgress> FileRepository::GetUploadProgress(
 }
 
 Result<void> FileRepository::UpdateUploadProgress(
-    const std::string& file_md5, int uploaded_bytes) {
+    const std::string& file_md5, int64_t uploaded_bytes) {
 
     auto redisManager = RedisManager::getInstance();
     if (!redisManager) {
@@ -301,12 +302,12 @@ Result<bool> FileRepository::ExistsUploadProgress(const std::string& file_md5) {
     return Result<bool>::OK(exists);
 }
 
-Result<int> FileRepository::GetUploadedBytes(const std::string& file_md5) {
+Result<int64_t> FileRepository::GetUploadedBytes(const std::string& file_md5) {
     auto progress = GetUploadProgress(file_md5);
     if (!progress.IsOK()) {
-        return Result<int>::Error(progress.Error());
+        return Result<int64_t>::Error(progress.Error());
     }
-    return Result<int>::OK(progress.Value().uploaded_bytes);
+    return Result<int64_t>::OK(progress.Value().uploaded_bytes);
 }
 
 Result<void> FileRepository::SetUploadExpire(
@@ -664,13 +665,13 @@ Result<std::string> FileRepository::GetBlockCheckpoint(
     return Result<std::string>::OK(block_md5);
 }
 
-Result<int> FileRepository::VerifyUploadBlocks(
-    const std::string& file_md5, int reported_offset, int block_size) {
+Result<int64_t> FileRepository::VerifyUploadBlocks(
+    const std::string& file_md5, int64_t reported_offset, int block_size) {
 
     auto redisManager = RedisManager::getInstance();
     if (!redisManager) {
         LOG_ERROR("[FileRepository] RedisManager instance is null");
-        return Result<int>::Error(ErrorCodes::REDIS_ERROR);
+        return Result<int64_t>::Error(ErrorCodes::REDIS_ERROR);
     }
 
     std::string key        = FormatBlockKey(file_md5);
@@ -680,13 +681,13 @@ Result<int> FileRepository::VerifyUploadBlocks(
         LOG_DEBUG(
             "[FileRepository] No block checkpoints found for md5: {}",
             file_md5);
-        return Result<int>::OK(0);
+        return Result<int64_t>::OK(0);
     }
 
-    int expected_block_index = reported_offset / block_size;
-    int completed_count      = 0;
+    const int64_t expected_block_index = reported_offset / block_size;
+    int64_t       completed_count      = 0;
 
-    for (int i = 0; i < expected_block_index; ++i) {
+    for (int64_t i = 0; i < expected_block_index; ++i) {
         std::string field = FormatBlockFieldKey(i);
         if (all_blocks.find(field) != all_blocks.end()) {
             completed_count++;
@@ -699,7 +700,7 @@ Result<int> FileRepository::VerifyUploadBlocks(
         file_md5,
         reported_offset);
 
-    return Result<int>::OK(completed_count);
+    return Result<int64_t>::OK(completed_count);
 }
 
 Result<void> FileRepository::DeleteBlockCheckpoints(
@@ -756,4 +757,57 @@ Result<int> FileRepository::CountCompletedBlocks(
         file_md5);
 
     return Result<int>::OK(count);
+}
+
+Result<DownloadProgress> FileRepository::GetLatestDownloadProgress(
+    const std::string& file_name) {
+
+    auto redisManager = RedisManager::getInstance();
+    if (!redisManager) {
+        LOG_ERROR("[FileRepository] RedisManager instance is null");
+        return Result<DownloadProgress>::Error(ErrorCodes::REDIS_ERROR);
+    }
+
+    std::vector<std::string> keys;
+    const std::string pattern = "download_progress:" + file_name + ":*";
+    if (!redisManager->Scan(pattern, keys) || keys.empty()) {
+        LOG_DEBUG("[FileRepository] No download progress keys for file: {}", file_name);
+        return Result<DownloadProgress>::Error(ErrorCodes::REDIS_ERROR);
+    }
+
+    bool found = false;
+    int latest_updated_at = -1;
+    DownloadProgress latest{};
+    const std::string prefix = "download_progress:" + file_name + ":";
+
+    for (const auto& key : keys) {
+        const std::string downloaded_str = redisManager->HGet(key, "downloaded_bytes");
+        if (downloaded_str.empty()) {
+            continue;
+        }
+
+        const std::string updated_str = redisManager->HGet(key, "updated_at");
+        const int updated_at = updated_str.empty() ? 0 : std::atoi(updated_str.c_str());
+
+        if (!found || updated_at > latest_updated_at) {
+            found = true;
+            latest_updated_at = updated_at;
+
+            latest.file_name = file_name;
+            latest.downloaded_bytes = std::atoll(downloaded_str.c_str());
+            latest.updated_at = updated_at;
+
+            if (key.rfind(prefix, 0) == 0) {
+                latest.session_id = key.substr(prefix.size());
+            } else {
+                latest.session_id.clear();
+            }
+        }
+    }
+
+    if (!found) {
+        return Result<DownloadProgress>::Error(ErrorCodes::REDIS_ERROR);
+    }
+
+    return Result<DownloadProgress>::OK(latest);
 }

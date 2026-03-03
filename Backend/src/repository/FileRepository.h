@@ -32,6 +32,7 @@ struct ChunkInfo {
     int64_t     chunk_offset;
 };
 
+
 class FileRepository : public SingleTon<FileRepository> {
     friend class SingleTon<FileRepository>;
 
@@ -42,22 +43,22 @@ public:
 
     static Result<void> SaveUploadProgress(
         const std::string& file_md5, const std::string& file_name,
-        int total_size, int uploaded_bytes,
+        int64_t total_size, int64_t uploaded_bytes,
         const std::string& status = "uploading");
 
     static Result<UploadProgress> GetUploadProgress(
         const std::string& file_md5);
 
     static Result<void> UpdateUploadProgress(
-        const std::string& file_md5, int uploaded_bytes);
+        const std::string& file_md5, int64_t uploaded_bytes);
 
-    static Result<void> MarkUploadComplete(const std::string& file_md5);
-    static Result<void> MarkUploadCancelled(const std::string& file_md5);
-    static Result<void> DeleteUploadProgress(const std::string& file_md5);
-    static Result<bool> ExistsUploadProgress(const std::string& file_md5);
-    static Result<int>  GetUploadedBytes(const std::string& file_md5);
-    static Result<void> SetUploadExpire(
-        const std::string& file_md5, int seconds);
+    static Result<void>    MarkUploadComplete(const std::string& file_md5);
+    static Result<void>    MarkUploadCancelled(const std::string& file_md5);
+    static Result<void>    DeleteUploadProgress(const std::string& file_md5);
+    static Result<bool>    ExistsUploadProgress(const std::string& file_md5);
+    static Result<int64_t> GetUploadedBytes(const std::string& file_md5);
+    static Result<void>    SetUploadExpire(
+           const std::string& file_md5, int seconds);
 
     static Result<void> SaveBlockCheckpoint(
         const std::string& file_md5, int block_index,
@@ -66,8 +67,8 @@ public:
     static Result<std::string> GetBlockCheckpoint(
         const std::string& file_md5, int block_index);
 
-    static Result<int> VerifyUploadBlocks(
-        const std::string& file_md5, int reported_offset,
+    static Result<int64_t> VerifyUploadBlocks(
+        const std::string& file_md5, int64_t reported_offset,
         int block_size = DEFAULT_BLOCK_SIZE);
 
     static Result<void> DeleteBlockCheckpoints(const std::string& file_md5);
@@ -85,6 +86,9 @@ public:
     static Result<void> UpdateDownloadProgress(
         const std::string& file_name, const std::string& session_id,
         int64_t downloaded_bytes);
+
+    static Result<DownloadProgress> GetLatestDownloadProgress(
+        const std::string& file_name);
 
     static Result<void> DeleteDownloadProgress(
         const std::string& file_name, const std::string& session_id);
