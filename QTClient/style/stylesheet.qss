@@ -641,3 +641,43 @@ ApplyFriendItem #addBtn[state='press'] {
     font-weight: normal;
     font-family: "Maple Mono NF";
 }
+#side_settings_lb[state='normal']{
+    border-image: url(./img/settings.png);
+}
+
+#side_settings_lb[state='hover']{
+    border-image: url(./img/settings_hover.png);
+}
+
+#side_settings_lb[state='pressed']{
+    border-image: url(./img/settings_press.png);
+}
+
+#side_settings_lb[state='selected_normal']{
+    border-image: url(./img/settings_press.png);
+}
+
+#side_settings_lb[state='selected_hover']{
+    border-image: url(./img/settings_press.png);
+}
+
+#side_settings_lb[state='selected_pressed']{
+    border-image: url(./img/settings_press.png);
+}
+
+#friend_info_page #name_lb {
+    color: #161616;
+    font-size: 18px; /* 设置字体大小 */
+    font-family: "Maple Mono NF"; /* 设置字体 */
+}
+
+#friend_info_page #nick_tip,
+#friend_info_page #nick_lb,
+#friend_info_page #bak_lb,
+#friend_info_page #bak_tip
+{
+    color: #161616;
+    font-size: 14px; /* 设置字体大小 */
+    font-family: "Maple Mono NF"; /* 设置字体 */
+}
+

@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "tcpmanager.h"
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -15,6 +16,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(_loginDialog, &Login::switchToRegister, this, &MainWindow::SlotSwitchReg);
     connect(_loginDialog, &Login::switchReset, this, &MainWindow::SlotSwitchReset);
     connect(TcpManager::getInstance().get(), &TcpManager::sig_switch_chat_dialog, this, &MainWindow::SlotSwitchChat);
+    connect(TcpManager::getInstance().get(), &TcpManager::sig_offline, this, &MainWindow::SlotOffline);
+    connect(TcpManager::getInstance().get(), &TcpManager::sig_connection_lost, this, &MainWindow::SlotConnectionLost);
     // test
     //emit TcpManager::getInstance()->sig_switch_chat_dialog();
 }
@@ -27,6 +30,7 @@ void MainWindow::SlotSwitchReg() {
     connect(_registerDialog, &Register::sigSwitchLogin, this, &MainWindow::SlotSwitchLogin);
     _loginDialog->hide();
     _registerDialog->show();
+    _ui_status = REGISTER_UI;
 
 }
 
@@ -44,6 +48,7 @@ void MainWindow::SlotSwitchLogin()
     connect(_loginDialog, &Login::switchToRegister, this, &MainWindow::SlotSwitchReg);
     //连接登录界面忘记密码信号
     connect(_loginDialog, &Login::switchReset, this, &MainWindow::SlotSwitchReset);
+    _ui_status = LOGIN_UI;
 }
 
 void MainWindow::SlotSwitchLogin2()
@@ -57,7 +62,9 @@ void MainWindow::SlotSwitchLogin2()
     //连接登录界面忘记密码信号
     connect(_loginDialog, &Login::switchReset, this, &MainWindow::SlotSwitchReset);
     //连接登录界面注册信号
-    connect(_loginDialog, &Login::switchToRegister, this, &MainWindow::SlotSwitchReg);}
+    connect(_loginDialog, &Login::switchToRegister, this, &MainWindow::SlotSwitchReg);
+    _ui_status = LOGIN_UI;
+}
 
 void MainWindow::SlotSwitchReset()
 {
@@ -69,6 +76,7 @@ void MainWindow::SlotSwitchReset()
     connect(_reset_dig, &ResetDialog::sigSwitchLogin, this, &MainWindow::SlotSwitchLogin2);
     _loginDialog->hide();
     _reset_dig->show();
+    _ui_status = RESET_UI;
 }
 
 void MainWindow::SlotSwitchChat()
@@ -80,7 +88,23 @@ void MainWindow::SlotSwitchChat()
     _loginDialog->hide();
     this->setMinimumSize(QSize(1050, 900));
     this->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    _ui_status = CHAT_UI;
+}
 
+void MainWindow::SlotOffline()
+{
+
+    // 使用静态方法直接弹出一个信息框
+    QMessageBox::information(this, "下线提示", "同账号异地登录，该终端下线！");
+    TcpManager::getInstance()->CloseConnection();
+    offlineLogin();
+}
+
+void MainWindow::SlotConnectionLost()
+{
+    QMessageBox::information(this, "连接断开", "与服务器连接已断开，请重新登录！");
+    TcpManager::getInstance()->CloseConnection();
+    offlineLogin();
 }
 
 
@@ -99,4 +123,27 @@ MainWindow::~MainWindow()
     //     _registerDialog = nullptr;
     // }
     delete ui;
+}
+
+void MainWindow::offlineLogin()
+{
+    if(_ui_status == LOGIN_UI){
+        return;
+    }
+    //创建一个CentralWidget, 并将其设置为MainWindow的中心部件
+    _loginDialog = new Login(this);
+    _loginDialog->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
+    setCentralWidget(_loginDialog);
+
+    _chat_dlg->hide();
+    this->setMaximumSize(300,500);
+    this->setMinimumSize(300,500);
+    this->resize(300,500);
+    _loginDialog->show();
+    //连接登录界面注册信号
+    connect(_loginDialog, &Login::switchToRegister, this, &MainWindow::SlotSwitchReg);
+    //连接登录界面忘记密码信号
+    connect(_loginDialog, &Login::switchReset, this, &MainWindow::SlotSwitchReset);
+    _ui_status = LOGIN_UI;
+
 }

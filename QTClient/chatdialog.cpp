@@ -77,12 +77,22 @@ ChatDialog::ChatDialog(QWidget *parent)
                                   "selected_normal",
                                   "selected_hover",
                                   "selected_pressed");
+    ui->side_settings_lb->SetState("normal",
+                                   "hover",
+                                   "pressed",
+                                   "selected_normal",
+                                   "selected_hover",
+                                   "selected_pressed");
+
 
     AddLBGroup(ui->side_chat_label);
     AddLBGroup(ui->side_contact_label);
+    AddLBGroup(ui->side_settings_lb);
+
 
     connect(ui->side_chat_label, &StateWidget::clicked, this, &ChatDialog::slot_side_chat);
     connect(ui->side_contact_label, &StateWidget::clicked, this, &ChatDialog::slot_side_contact);
+    connect(ui->side_settings_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_setting);
 
     // 连接输入框搜索变化
     connect(ui->search_edit, &QLineEdit::textChanged, this, &ChatDialog::slot_text_changed);
@@ -103,7 +113,7 @@ ChatDialog::ChatDialog(QWidget *parent)
     // 连接清除搜索框操作
     connect(ui->friend_apply_page, &ApplyFriendPage::sig_show_search, this, &ChatDialog::slot_show_search);
     // 连接联系人列表点击切换聊天界面信号
-    connect(ui->con_user_list, &ContactUserList::sig_switch_chat_page, this, &ChatDialog::slot_switch_chat_page);
+    connect(ui->con_user_list, &ContactUserList::sig_switch_friend_info_page, this, &ChatDialog::slot_friend_info_page);
     // set Search_list
     ui->search_list->SetSearchEdit(ui->search_edit);
 
@@ -114,9 +124,9 @@ ChatDialog::ChatDialog(QWidget *parent)
     // 连接自己认证回复信号
     connect(TcpManager::getInstance().get(), &TcpManager::sig_auth_rsp, this, &ChatDialog::slot_auth_rsp);
     // 连接点击联系人item发出的信号和用户信息展示槽
-    //connect(ui->con_user_list, &ContactUserList::sig_switch_friend_info_page, this, &ChatDialog::slot_friend_info_page);
+    connect(ui->con_user_list, &ContactUserList::sig_switch_friend_info_page, this, &ChatDialog::slot_friend_info_page);
     // 设置中心部件为ChatPage
-    // ui->stackedWidget->setCurrentWidget(ui->chat_page);
+    ui->stackedWidget->setCurrentWidget(ui->chat_page);
     // 连接searchlist跳转聊天信号
     connect(ui->search_list, &SearchList::sig_jump_chat_item, this, &ChatDialog::slot_jump_chat_item);
     // 连接好友信息界面发送的点击事件
@@ -126,6 +136,8 @@ ChatDialog::ChatDialog(QWidget *parent)
     // 连接对端通知
     connect(TcpManager::getInstance().get(), &TcpManager::sig_text_chat_msg, this, &ChatDialog::slot_text_chat_msg);
     connect(ui->chat_page, &ChatPage::sig_append_send_chat_msg, this, &ChatDialog::slot_append_send_chat_msg);
+    connect(ui->friend_info_page, &FriendInfoPage::sig_jump_chat_item, this, &ChatDialog::slot_jump_chat_item_from_page);
+
 
 
     // connect(ui->search_edit, &QLineEdit::textChanged, this, &ChatDialog::slot_text_changed);
@@ -218,6 +230,12 @@ void ChatDialog::addChatUserList()
             auto *chat_user_wid = new ChatUserWidget();
             auto user_info = std::make_shared<UserInfo>(friend_ele);
             chat_user_wid->SetInfo(user_info);
+
+            // 渲染消息记录
+            if(!friend_ele->_chat_msgs.empty()) {
+                chat_user_wid->updateLastMsg(friend_ele->_chat_msgs);
+            }
+
             QListWidgetItem *item = new QListWidgetItem;
             //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
             item->setSizeHint(chat_user_wid->sizeHint());
@@ -638,6 +656,41 @@ void ChatDialog::slot_jump_chat_item(std::shared_ptr<SearchInfo> si)
     slot_side_chat();
 }
 
+void ChatDialog::slot_jump_chat_item_from_page(std::shared_ptr<UserInfo> user_info)
+{
+    qDebug() << "slot jump chat item " << endl;
+    auto find_iter = _chat_items_added.find(user_info->_uid);
+    if(find_iter != _chat_items_added.end()){
+        qDebug() << "jump to chat item , uid is " << user_info->_uid;
+        ui->chat_user_list->scrollToItem(find_iter.value());
+        ui->side_chat_label->SetSelected(true);
+        SetSelectChatItem(user_info->_uid);
+        //更新聊天界面信息
+        SetSelectChatPage(user_info->_uid);
+        slot_side_chat();
+        return;
+    }
+
+    //如果没找到，则创建新的插入listwidget
+
+    auto* chat_user_wid = new ChatUserWidget();
+    chat_user_wid->SetInfo(user_info);
+    QListWidgetItem* item = new QListWidgetItem;
+    //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+    item->setSizeHint(chat_user_wid->sizeHint());
+    ui->chat_user_list->insertItem(0, item);
+    ui->chat_user_list->setItemWidget(item, chat_user_wid);
+
+    _chat_items_added.insert(user_info->_uid, item);
+
+    ui->side_chat_label->SetSelected(true);
+    SetSelectChatItem(user_info->_uid);
+    //更新聊天界面信息
+    SetSelectChatPage(user_info->_uid);
+    slot_side_chat();
+
+}
+
 void ChatDialog::slot_item_clicked(QListWidgetItem *item)
 {
     QWidget *widget = ui->chat_user_list->itemWidget(item); // 获取自定义widget对象
@@ -709,10 +762,32 @@ void ChatDialog::slot_switch_chat_page(std::shared_ptr<UserInfo> user_info)
     slot_side_chat();
 }
 
+
 void ChatDialog::slot_focus_out()
 {
     qDebug()<< "receive focus out signal";
     ShowSearch(false);
+}
+
+void ChatDialog::slot_side_setting()
+{
+    qDebug()<< "receive side setting clicked";
+    ClearLabelState(ui->side_settings_lb);
+    //设置
+    ui->stackedWidget->setCurrentWidget(ui->user_info_page);
+
+    _state = ChatUIMode::SettingsMode;
+    ShowSearch(false);
+
+}
+
+void ChatDialog::slot_friend_info_page(std::shared_ptr<UserInfo> user_info)
+{
+    qDebug()<<"receive switch friend info page sig";
+    _last_widget = ui->friend_info_page;
+    ui->stackedWidget->setCurrentWidget(ui->friend_info_page);
+    ui->friend_info_page->SetInfo(user_info);
+
 }
 
 bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
@@ -772,6 +847,12 @@ void ChatDialog::loadMoreChatUser()
             auto *chat_user_wid = new ChatUserWidget();
             auto user_info = std::make_shared<UserInfo>(friend_ele);
             chat_user_wid->SetInfo(user_info);
+
+            // 渲染消息记录
+            if (!friend_ele->_chat_msgs.empty()) {
+                chat_user_wid->updateLastMsg(friend_ele->_chat_msgs);
+            }
+
             QListWidgetItem *item = new QListWidgetItem;
             //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
             item->setSizeHint(chat_user_wid->sizeHint());

@@ -89,7 +89,7 @@
           <string>申请添加好友</string>
          </property>
          <property name="alignment">
-          <set>Qt::AlignCenter</set>
+          <set>Qt::AlignmentFlag::AlignCenter</set>
          </property>
         </widget>
        </item>
@@ -99,7 +99,7 @@
           <item>
            <widget class="Line" name="h_line">
             <property name="orientation">
-             <enum>Qt::Horizontal</enum>
+             <enum>Qt::Orientation::Horizontal</enum>
             </property>
            </widget>
           </item>
@@ -123,7 +123,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CustomizeEdit" name="name_ed">
+           <widget class="CustomEdit" name="name_ed">
             <property name="minimumSize">
              <size>
               <width>0</width>
@@ -158,7 +158,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CustomizeEdit" name="back_ed">
+           <widget class="CustomEdit" name="back_ed">
             <property name="minimumSize">
              <size>
               <width>0</width>
@@ -230,7 +230,7 @@
                  <height>40</height>
                 </size>
                </property>
-               <widget class="CustomizeEdit" name="lb_ed">
+               <widget class="CustomEdit" name="lb_ed">
                 <property name="geometry">
                  <rect>
                   <x>2</x>
@@ -284,7 +284,7 @@
                    <string>TextLabel</string>
                   </property>
                   <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                   <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                   </property>
                  </widget>
                 </item>
@@ -367,7 +367,7 @@
                 <item>
                  <spacer name="verticalSpacer_2">
                   <property name="orientation">
-                   <enum>Qt::Vertical</enum>
+                   <enum>Qt::Orientation::Vertical</enum>
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
@@ -399,10 +399,10 @@
                 <item>
                  <spacer name="verticalSpacer_4">
                   <property name="orientation">
-                   <enum>Qt::Vertical</enum>
+                   <enum>Qt::Orientation::Vertical</enum>
                   </property>
                   <property name="sizeType">
-                   <enum>QSizePolicy::Fixed</enum>
+                   <enum>QSizePolicy::Policy::Fixed</enum>
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
@@ -428,10 +428,10 @@
    <item>
     <spacer name="verticalSpacer_3">
      <property name="orientation">
-      <enum>Qt::Vertical</enum>
+      <enum>Qt::Orientation::Vertical</enum>
      </property>
      <property name="sizeType">
-      <enum>QSizePolicy::Fixed</enum>
+      <enum>QSizePolicy::Policy::Fixed</enum>
      </property>
      <property name="sizeHint" stdset="0">
       <size>
@@ -453,7 +453,7 @@
       <item>
        <spacer name="horizontalSpacer">
         <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+         <enum>Qt::Orientation::Horizontal</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
@@ -485,7 +485,7 @@
       <item>
        <spacer name="horizontalSpacer_3">
         <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+         <enum>Qt::Orientation::Horizontal</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
@@ -511,7 +511,7 @@
       <item>
        <spacer name="horizontalSpacer_2">
         <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+         <enum>Qt::Orientation::Horizontal</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
@@ -527,7 +527,7 @@
    <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
-      <enum>Qt::Vertical</enum>
+      <enum>Qt::Orientation::Vertical</enum>
      </property>
      <property name="sizeHint" stdset="0">
       <size>
@@ -541,11 +541,6 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>CustomizeEdit</class>
-   <extends>QLineEdit</extends>
-   <header>customizeedit.h</header>
-  </customwidget>
-  <customwidget>
    <class>ClickedBtn</class>
    <extends>QPushButton</extends>
    <header>clickedbtn.h</header>
@@ -554,6 +549,11 @@
    <class>ClickedOnceLabel</class>
    <extends>QLabel</extends>
    <header>clickedoncelabel.h</header>
+  </customwidget>
+  <customwidget>
+   <class>CustomEdit</class>
+   <extends>QLineEdit</extends>
+   <header>customedit.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -146,6 +146,28 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="StateWidget" name="side_settings_lb">
+           <property name="minimumSize">
+            <size>
+             <width>30</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>30</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
       </item>
@@ -246,8 +268,13 @@
    </item>
    <item>
     <widget class="QStackedWidget" name="stackedWidget">
+     <property name="currentIndex">
+      <number>3</number>
+     </property>
      <widget class="ChatPage" name="chat_page"/>
      <widget class="ApplyFriendPage" name="friend_apply_page"/>
+     <widget class="FriendInfoPage" name="friend_info_page"/>
+     <widget class="UserInfoPage" name="user_info_page"/>
     </widget>
    </item>
   </layout>
@@ -294,6 +321,18 @@
    <class>ApplyFriendPage</class>
    <extends>QWidget</extends>
    <header>applyfriendpage.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>UserInfoPage</class>
+   <extends>QWidget</extends>
+   <header>userinfopage.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>FriendInfoPage</class>
+   <extends>QWidget</extends>
+   <header>friendinfopage.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

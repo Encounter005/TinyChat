@@ -39,9 +39,12 @@ public slots:
     void slot_switch_apply_friend_page();
     void slot_show_search(bool show);
     void slot_jump_chat_item(std::shared_ptr<SearchInfo> si);
+    void slot_jump_chat_item_from_page(std::shared_ptr<UserInfo> user_info);
     void slot_item_clicked(QListWidgetItem *item);
     void slot_switch_chat_page(std::shared_ptr<UserInfo> user_info);
     void slot_focus_out();
+    void slot_side_setting();
+    void slot_friend_info_page(std::shared_ptr<UserInfo> user_info);
 
 private:
     bool eventFilter(QObject* watched, QEvent* event);

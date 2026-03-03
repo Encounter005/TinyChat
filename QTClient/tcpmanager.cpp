@@ -1,5 +1,11 @@
 #include "tcpmanager.h"
+#include "qapplication.h"
+#include "qjsondocument.h"
+#include "qsettings.h"
+#include "qtimer.h"
+#include "userdata.h"
 #include "usermanager.h"
+#include <QDir>
 #include <QJsonDocument>
 
 void TcpManager::handleMsg(ReqId id, int len, QByteArray data)
@@ -17,6 +23,7 @@ void TcpManager::initHandlers()
     _handlers.insert(ReqId::ID_CHAT_LOGIN_RSP, [this](ReqId id, int len, QByteArray data){
         qDebug() << "handle id is: " << id << "data is" << data;
 
+        updateLastResponseTime();
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
         if(jsonDoc.isNull()) {
             qDebug() << "Failed to create QJsonDocument";
@@ -49,6 +56,35 @@ void TcpManager::initHandlers()
             qDebug("Find Friend List");
             UserManager::getInstance()->AppendFriendList(jsonObj["friend_list"].toArray());
         }
+        //渲染消息记录
+        if(jsonObj.contains("recent_messages")) {
+            auto recentMsgs = jsonObj["recent_messages"].toArray();
+            for(const auto& recentMsg : recentMsgs) {
+                QJsonDocument msgDoc = QJsonDocument::fromJson(recentMsg.toString().toUtf8());
+                if(msgDoc.isNull() || !msgDoc.isObject()) continue;
+
+                QJsonObject msgObj = msgDoc.object();
+                int fromuid = msgObj["fromuid"].toInt();
+                int touid = msgObj["touid"].toInt();
+                auto textArray = msgObj["text_array"].toArray();
+
+                int friendUid = (touid == uid) ? fromuid : touid;
+
+                std::vector<std::shared_ptr<TextChatData>> msgVec;
+                for(const auto& txtItem : textArray) {
+                    auto txtObj = txtItem.toObject();
+                    QString msgId = txtObj["msgid"].toString();
+                    QString content = txtObj["content"].toString();
+                    auto textChatData = std::make_shared<TextChatData>(msgId, content, fromuid, touid);
+                    msgVec.push_back(textChatData);
+                }
+
+                if(!msgVec.empty()) {
+                    UserManager::getInstance()->AppendFriendChatMsg(friendUid, msgVec);
+                }
+            }
+        }
+        
         // emit chatDialog
         emit sig_switch_chat_dialog();
     });
@@ -56,6 +92,7 @@ void TcpManager::initHandlers()
     _handlers.insert(ReqId::ID_SEARCH_USER_RSP,[this](ReqId id, int len , QByteArray data){
         Q_UNUSED(len);
         qDebug()<< "handle id is "<< id << " data is " << data;
+        updateLastResponseTime();
         // 将QByteArray转换为QJsonDocument
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
         // 检查转换是否成功
@@ -85,6 +122,7 @@ void TcpManager::initHandlers()
     _handlers.insert(ID_NOTIFY_ADD_FRIEND_REQ, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
         qDebug() << "handle id is " << id << " data is " << data;
+        updateLastResponseTime();
         // 将QByteArray转换为QJsonDocument
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
         // 检查转换是否成功
@@ -120,6 +158,7 @@ void TcpManager::initHandlers()
     _handlers.insert(ID_AUTH_FRIEND_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
         qDebug() << "handle id is " << id << " data is " << data;
+        updateLastResponseTime();
         // 将QByteArray转换为QJsonDocument
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
         // 检查转换是否成功
@@ -150,6 +189,7 @@ void TcpManager::initHandlers()
     _handlers.insert(ID_NOTIFY_AUTH_FRIEND_REQ, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
         qDebug() << "handle id is " << id << " data is " << data;
+        updateLastResponseTime();
         // 将QByteArray转换为QJsonDocument
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
         // 检查转换是否成功
@@ -180,6 +220,7 @@ void TcpManager::initHandlers()
     _handlers.insert(ID_TEXT_CHAT_MSG_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
         qDebug() << "handle id is " << id << " data is " << data;
+        updateLastResponseTime();
         // 将QByteArray转换为QJsonDocument
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
         // 检查转换是否成功
@@ -204,6 +245,7 @@ void TcpManager::initHandlers()
     _handlers.insert(ID_NOTIFY_TEXT_CHAT_MSG_REQ, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
         qDebug() << "handle id is " << id << " data is " << data;
+        updateLastResponseTime();
         // 将QByteArray转换为QJsonDocument
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
         // 检查转换是否成功
@@ -227,14 +269,97 @@ void TcpManager::initHandlers()
                                                      jsonObj["touid"].toInt(),jsonObj["text_array"].toArray());
         emit sig_text_chat_msg(msg_ptr);
     });
+
+    _handlers.insert(ID_NOTIFY_OFF_LINE_REQ, [this](ReqId id, int len, QByteArray data){
+        Q_UNUSED(len);
+        qDebug() << "handle id is " << id << " data is " << data;
+        updateLastResponseTime();
+        // 将QByteArray转换为QJsonDocument
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        // 检查转换是否成功
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            return;
+        }
+        QJsonObject jsonObj = jsonDoc.object();
+        if (!jsonObj.contains("error")) {
+            int err = ErrorCodes::ERROR_JSON;
+            qDebug() << "Kick Msg Failed, err is Json Parse Err" << err;
+            return;
+        }
+        int err = jsonObj["error"].toInt();
+        if (err != ErrorCodes::SUCCESS) {
+            qDebug() << "Kick Msg Failed, err is " << err;
+            return;
+        }
+        emit sig_offline();
+        stopHeartbeat();
+    });
+
+    _handlers.insert(ID_HEARTBEAT_RSP, [this](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        qDebug() << "Heartbeat response received";
+
+        // Update last response time
+        updateLastResponseTime();
+    });
+
+    // Handle heartbeat probe request from server
+    _handlers.insert(ID_HEART_BEAT_REQ, [this](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        qDebug() << "Heartbeat request received";
+
+        // Parse the message to check if it's a probe from server
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to parse heartbeat request";
+            return;
+        }
+
+        QJsonObject jsonObj = jsonDoc.object();
+
+        // Update last response time (we received something from server)
+        updateLastResponseTime();
+
+        // If this is a probe from server, send heartbeat response immediately
+        if (jsonObj.contains("probe") && jsonObj["probe"].toBool()) {
+            qDebug() << "Probe received from server, sending heartbeat response";
+            sendHeartbeat();
+        }
+    });
 }
 
-TcpManager::TcpManager() : _host(""), _recv_pending(false), _message_id(0), _message_len(0) {
+void TcpManager::CloseConnection()
+{
+    // _socket.close();
+    stopHeartbeat();
+
+    // Close the socket
+    if (_socket.state() != QAbstractSocket::UnconnectedState) {
+        _socket.disconnectFromHost();
+        _socket.waitForDisconnected(1000);  // Wait up to 1 second
+    }
+
+    qDebug() << "Connection closed";
+}
+
+TcpManager::TcpManager() : _host(""), _recv_pending(false), _message_id(0), _message_len(0),
+    _heartbeat_timer(nullptr), _timeout_timer(nullptr) {
     initHandlers();
-    QObject::connect(&_socket, &QTcpSocket::connected, [&](){
+
+    QString app_path = QCoreApplication::applicationDirPath();
+    QString fileName = "config.ini";
+    QString config_path = QDir::toNativeSeparators(app_path + QDir::separator() + fileName);
+    QSettings settings(config_path, QSettings::IniFormat);
+    _heartbeat_interval = settings.value("ChatServer/heartbeat_interval").toInt();
+    _is_heartbeat_enabled = settings.value("ChatServer/heartbeat_enabled").toBool();
+    _connection_timeout = settings.value("ChatServer/connection_timeout").toInt();
+
+QObject::connect(&_socket, &QTcpSocket::connected, [&](){
         qDebug() << "Connected to the server";
         emit sig_con_success(true);
     });
+
     QObject::connect(&_socket, &QTcpSocket::readyRead, [this](){
         _buffer.append(_socket.readAll());
         while(true) {
@@ -268,9 +393,95 @@ TcpManager::TcpManager() : _host(""), _recv_pending(false), _message_id(0), _mes
 
     QObject::connect(&_socket, &QTcpSocket::disconnected, [&](){
         qDebug() << "Disconnected from the sever";
+        stopHeartbeat();
     });
 
     QObject::connect(this, &TcpManager::sig_send_data, this, &TcpManager::slot_send_data);
+}
+
+void TcpManager::startHeartbeat()
+{
+    if (!_is_heartbeat_enabled) {
+        qDebug() << "Heartbeat is disabled";
+        return;
+    }
+
+    // Stop existing timers if any
+    stopHeartbeat();
+
+    // Initialize heartbeat timer
+    _heartbeat_timer = new QTimer(this);
+    connect(_heartbeat_timer, &QTimer::timeout, this, &TcpManager::sendHeartbeat);
+    _heartbeat_timer->start(_heartbeat_interval * 1000);  // Convert to milliseconds
+
+    // Initialize timeout checker timer
+    _timeout_timer = new QTimer(this);
+    connect(_timeout_timer, &QTimer::timeout, this, &TcpManager::checkTimeout);
+    _timeout_timer->start(5000);  // Check every 5 seconds
+
+    // Initialize last response time to now
+    _last_response_time = QDateTime::currentDateTime();
+
+    qDebug() << "Heartbeat started - interval:" << _heartbeat_interval << "s, timeout:" << _connection_timeout << "s";
+}
+
+void TcpManager::stopHeartbeat()
+{
+    if (_heartbeat_timer) {
+        _heartbeat_timer->stop();
+        delete _heartbeat_timer;
+        _heartbeat_timer = nullptr;
+    }
+
+    if (_timeout_timer) {
+        _timeout_timer->stop();
+        delete _timeout_timer;
+        _timeout_timer = nullptr;
+    }
+
+    qDebug() << "Heartbeat stopped";
+}
+
+void TcpManager::sendHeartbeat()
+{
+    if (_socket.state() != QAbstractSocket::ConnectedState) {
+        qDebug() << "Cannot send heartbeat - socket not connected";
+        return;
+    }
+
+    // Construct heartbeat request JSON
+    QJsonObject jsonObj;
+    jsonObj["error"] = 0;
+    jsonObj["timestamp"] = QDateTime::currentSecsSinceEpoch();
+
+    QJsonDocument jsonDoc(jsonObj);
+    QString jsonString = QString::fromUtf8(jsonDoc.toJson(QJsonDocument::Compact));
+
+    // Send heartbeat packet
+    emit sig_send_data(ReqId::ID_HEART_BEAT_REQ, jsonString);
+    qDebug() << "Heartbeat sent";
+}
+
+void TcpManager::updateLastResponseTime()
+{
+    _last_response_time = QDateTime::currentDateTime();
+}
+
+void TcpManager::checkTimeout()
+{
+    QDateTime now = QDateTime::currentDateTime();
+    qint64 seconds_since_last_response = _last_response_time.secsTo(now);
+
+    if (seconds_since_last_response >= _connection_timeout) {
+        qWarning() << "Connection timeout detected! Last response:"
+                   << seconds_since_last_response << "seconds ago";
+
+        // Stop heartbeat timers
+        stopHeartbeat();
+
+        // Emit connection lost signal
+        emit sig_connection_lost();
+    }
 }
 
 void TcpManager::slot_tcp_connect(ServerInfo si)

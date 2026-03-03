@@ -152,7 +152,8 @@ void ContactUserList::slot_item_clicked(QListWidgetItem *item)
 
         auto contact_item = qobject_cast<ContactUserItem*>(customItem);
         auto user_info = contact_item->GetUserInfo();
-        emit sig_switch_chat_page(user_info);
+        // emit sig_switch_chat_page(user_info);
+        emit sig_switch_friend_info_page(user_info);
         return;
     }
 }

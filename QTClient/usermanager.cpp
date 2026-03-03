@@ -17,6 +17,21 @@ int UserManager::GetUid()
     return _user_info->_uid;
 }
 
+QString UserManager::GetIcon()
+{
+    return _user_info->_icon;
+}
+
+QString UserManager::GetDesc()
+{
+    return _user_info->_desc;
+}
+
+QString UserManager::GetNick()
+{
+    return _user_info->_nick;
+}
+
 std::vector<std::shared_ptr<ApplyInfo> > UserManager::GetApplyList()
 {
     return _apply_list;

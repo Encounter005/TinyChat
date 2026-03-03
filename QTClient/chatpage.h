@@ -2,6 +2,7 @@
 #define CHATPAGE_H
 
 #include "userdata.h"
+#include "fileuploadwindow.h"
 #include <QWidget>
 #include <QMap>
 #include <QPaintEvent>
@@ -24,11 +25,13 @@ private:
     Ui::ChatPage *ui;
     std::shared_ptr<UserInfo> _user_info;
     QMap<QString, QWidget*> _bubble_map;
+    FileUploadWindow* _fileWindow{nullptr};
 signals:
     void sig_append_send_chat_msg(std::shared_ptr<TextChatData>);
 private slots:
     void on_recv_btn_clicked();
     void on_send_btn_clicked();
+    void slot_switch_to_upload();
 
 };
 

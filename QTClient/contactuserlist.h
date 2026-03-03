@@ -31,7 +31,7 @@ public slots:
 signals:
     void sig_loading_contact_user();
     void sig_switch_apply_friend_page();
-    void sig_switch_friend_info_page();
+    void sig_switch_friend_info_page(std::shared_ptr<UserInfo> user_info);
     void sig_switch_chat_page(std::shared_ptr<UserInfo> user_info);
 private:
     ContactUserItem* _add_friend_item;

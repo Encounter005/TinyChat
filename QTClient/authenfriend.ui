@@ -195,7 +195,7 @@
                  <height>40</height>
                 </size>
                </property>
-               <widget class="CustomizeEdit" name="lb_ed">
+               <widget class="CustomEdit" name="lb_ed">
                 <property name="geometry">
                  <rect>
                   <x>2</x>
@@ -505,11 +505,6 @@
   </layout>
  </widget>
  <customwidgets>
-  <customwidget>
-   <class>CustomizeEdit</class>
-   <extends>QLineEdit</extends>
-   <header>customizeedit.h</header>
-  </customwidget>
   <customwidget>
    <class>ClickedBtn</class>
    <extends>QPushButton</extends>

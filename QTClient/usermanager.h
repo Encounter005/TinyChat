@@ -17,6 +17,10 @@ public:
     void SetToken(QString token);
     QString GetName();
     int GetUid();
+    QString GetIcon();
+    QString GetDesc();
+    QString GetNick();
+
     std::vector<std::shared_ptr<ApplyInfo>> GetApplyList();
     bool CheckFriendById(int uid);
     void UpdateChatLoadedCount();
