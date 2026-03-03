@@ -4,7 +4,23 @@
 #include "common/result.h"
 #include "common/singleton.h"
 #include "dao/MySqlDAO.h"
+#include "infra/LogManager.h"
 #include <cppconn/connection.h>
+#include <cppconn/exception.h>
+#include <cppconn/prepared_statement.h>
+#include <cppconn/resultset.h>
+#include <json/reader.h>
+#include <json/value.h>
+#include <map>
+#include <memory>
+#include <string>
+
+
+struct FriendMessages {
+    int                      friend_uid;
+    std::vector<std::string> messages;
+};
+
 
 class MsgDAO : public SingleTon<MsgDAO>, public MySqlDAO {
     friend class SingleTon<MsgDAO>;
@@ -92,25 +108,25 @@ public:
         });
     }
 
-    Result<std::vector<std::string>> getRecentMessages(
+    Result<std::vector<FriendMessages>> getRecentMessagesGroupedByFriend(
         int uid, int days, int limit) {
-
-        return executeWithConn<std::vector<std::string>>([&](sql::Connection* conn) {
-            std::vector<std::string> messages;
-            std::time_t now = std::time(nullptr);
+        return executeWithConn<std::vector<FriendMessages>>([&](sql::Connection*
+                                                                    conn) {
+            std::map<int, std::vector<std::string>> friend_message_map;
+            std::time_t                             now = std::time(nullptr);
             std::time_t start_time = now - (days * 24 * 60 * 60);
 
             struct MessageWithTime {
                 std::string content;
                 std::time_t timestamp;
             };
-            std::vector<MessageWithTime> all_messages;
+            std::map<int, std::vector<MessageWithTime>> timed_messages_map;
 
             for (int table_id = 0; table_id < 16; ++table_id) {
-                std::string table_name = "chat_messages_" + std::to_string(table_id);
-
-                std::string sql = "SELECT content FROM " + table_name +
-                    " WHERE from_uid = ? OR to_uid = ?";
+                std::string table_name
+                    = "chat_messages_" + std::to_string(table_id);
+                std::string sql = "SELECT content FROM " + table_name 
+                                  + " WHERE from_uid = ? OR to_uid = ?";
 
                 try {
                     std::unique_ptr<sql::PreparedStatement> stmt(
@@ -122,57 +138,70 @@ public:
                     while (res->next()) {
                         std::string content = res->getString("content");
 
-                        Json::Value root;
+                        Json::Value  root;
                         Json::Reader reader;
                         if (!reader.parse(content, root)) {
                             LOG_WARN("Failed to parse message JSON, skipping");
                             continue;
                         }
 
-                        // Extract timestamp from msgid if available
-                        // msgid format: "msg_<timestamp>_<random>" or UUID
-                        std::time_t msg_time = 0;
+                        int from_uid   = root["fromuid"].asInt();
+                        int to_uid     = root["touid"].asInt();
+                        int friend_uid = (from_uid == uid) ? to_uid : from_uid;
+
+                        std::time_t msg_time = now;
                         if (root["text_array"].isArray()
                             && root["text_array"].size() > 0) {
-                            std::string msgid = root["text_array"][0]["msgid"].asString();
-                            // Try to extract timestamp from msgid prefix format
+                            std::string msgid
+                                = root["text_array"][0]["msgid"].asString();
                             if (msgid.find("msg_") == 0) {
                                 size_t second_underscore = msgid.find('_', 4);
                                 if (second_underscore != std::string::npos) {
-                                    std::string timestamp_str = msgid.substr(4, second_underscore - 4);
+                                    std::string timestamp_str
+                                        = msgid.substr(4, second_underscore);
                                     try {
-                                        msg_time = static_cast<std::time_t>(std::stoll(timestamp_str));
+                                        msg_time = static_cast<std::time_t>(
+                                            std::stoll(timestamp_str));
                                     } catch (...) {
                                         msg_time = now;
                                     }
                                 }
                             }
                         }
-
-                        // Filter by time range
                         if (msg_time >= start_time && msg_time <= now) {
-                            all_messages.push_back({content, msg_time});
+                            timed_messages_map[friend_uid].push_back(
+                                {content, msg_time});
                         }
                     }
+
                 } catch (sql::SQLException& e) {
-                    LOG_DEBUG("Table {} query skipped: {}", table_name, e.what());
+                    LOG_DEBUG("Table {} query skipped: {}", table_id, e.what());
                 }
             }
 
-            // Sort by timestamp descending (newest first)
-            std::sort(all_messages.begin(), all_messages.end(),
-                [](const MessageWithTime& a, const MessageWithTime& b) {
-                    return a.timestamp > b.timestamp;
-                });
+            std::vector<FriendMessages> result;
+            for (auto& [friend_uid, messages] : timed_messages_map) {
+                std::sort(
+                    messages.begin(),
+                    messages.end(),
+                    [](const MessageWithTime& a, const MessageWithTime& b) {
+                        return a.timestamp > b.timestamp;
+                    });
 
-            // Apply limit
-            size_t result_count = std::min(all_messages.size(), static_cast<size_t>(limit));
-            for (size_t i = 0; i < result_count; ++i) {
-                messages.push_back(all_messages[i].content);
+                FriendMessages fm;
+                fm.friend_uid = friend_uid;
+
+                // limit num
+                size_t count
+                    = std::min(messages.size(), static_cast<size_t>(limit));
+                for (size_t i = 0; i < count; ++i) {
+                    fm.messages.push_back(messages[i].content);
+                }
+
+                result.push_back(fm);
             }
 
-            LOG_INFO("Retrieved {} recent messages for uid {}", messages.size(), uid);
-            return Result<std::vector<std::string>>::OK(messages);
+            return Result<std::vector<FriendMessages>>::OK(result);
         });
     }
 };
