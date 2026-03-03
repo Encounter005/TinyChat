@@ -1,5 +1,3 @@
-QT       += core gui \
-    quick
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -29,12 +27,17 @@ SOURCES += \
     contactuseritem.cpp \
     contactuserlist.cpp \
     customedit.cpp \
+    file.grpc.pb.cc \
+    file.pb.cc \
+    fileuploadwindow.cpp \
     findfaildlg.cpp \
     findsuccessdialog.cpp \
+    friendinfopage.cpp \
     friendlabel.cpp \
     global.cpp \
     grouptipitem.cpp \
     httpmanager.cpp \
+    imagecropperlabel.cpp \
     listitembase.cpp \
     loadingdialog.cpp \
     login.cpp \
@@ -49,6 +52,7 @@ SOURCES += \
     tcpmanager.cpp \
     textbubble.cpp \
     timerbtn.cpp \
+    userinfopage.cpp \
     usermanager.cpp
 
 HEADERS += \
@@ -71,12 +75,18 @@ HEADERS += \
     contactuseritem.h \
     contactuserlist.h \
     customedit.h \
+    file.grpc.pb.h \
+    file.pb.h \
+    fileuploadwindow.h \
     findfaildlg.h \
     findsuccessdialog.h \
+    friendinfopage.h \
     friendlabel.h \
     global.h \
     grouptipitem.h \
     httpmanager.h \
+    imagecropperdialog.h \
+    imagecropperlabel.h \
     listitembase.h \
     loadingdialog.h \
     login.h \
@@ -92,6 +102,7 @@ HEADERS += \
     textbubble.h \
     timerbtn.h \
     userdata.h \
+    userinfopage.h \
     usermanager.h
 
 FORMS += \
@@ -104,15 +115,18 @@ FORMS += \
     chatpage.ui \
     chatuserwidget.ui \
     contactuseritem.ui \
+    fileuploadwindow.ui \
     findfaildlg.ui \
     findsuccessdialog.ui \
+    friendinfopage.ui \
     friendlabel.ui \
     grouptipitem.ui \
     loadingdialog.ui \
     login.ui \
     mainwindow.ui \
     register.ui \
-    resetdialog.ui
+    resetdialog.ui \
+    userinfopage.ui
 
 RC_ICONS = ./img/favicon.ico
 
@@ -124,4 +138,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 RESOURCES += \
     resources.qrc
 
-QT += core gui network
+QT += core gui network quick
+
+CONFIG += link_pkgconfig
+
+# 链接 gRPC 和 Protobuf
+PKGCONFIG += grpc++ protobuf
