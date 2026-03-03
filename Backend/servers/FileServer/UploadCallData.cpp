@@ -3,6 +3,7 @@
 #include "FileWorkerPool.h"
 #include "TaskQueue.h"
 #include "const.h"
+#include "file.grpc.pb.h"
 #include "file.pb.h"
 #include "infra/LogManager.h"
 #include "repository/FileRepository.h"
@@ -38,53 +39,152 @@ void UploadCallData::handleCreateState() {
 }
 
 void UploadCallData::handleProcessState(bool ok) {
-    if (!ok) {
-        // client 已发送完毕
-        _state = CallState::FINISH;
+    // 第一次进入 PROCESS：RPC 被 accept
+    if (!_stream_started) {
+        if (!ok) {
+            // gRPC 正在 shutdown 时，Request* 可能直接返回 ok=false
+            // 这里不能再调用 Finish，直接释放即可
+            cleanup();
+            return;
+        }
 
-        FileWorkerPool::getInstance()->Submit(FsTask::createEnd(_current_md5));
-
-        _response.set_success(true);
-        _response.set_message("OK");
-
-        BackPressureManager::getInstance()->notify_all();
-
-        _reader.Finish(_response, grpc::Status::OK, this);
+        _stream_started = true;
+        if (!_spawned_next_handler) {
+            createNextHandler();   // 每个 RPC 只创建一次下一处理器
+            _spawned_next_handler = true;
+        }
+        _reader.Read(&_request, this);
         return;
     }
-    // 启用备压
-    applyBackPressure();
 
-    createNextHandler();
+    // 后续 Read 回调
+    if (!ok) {
+        // 注意：async API 下此处不能调用 _ctx.IsCancelled()
+        bool stream_ok = _meta_received && !_has_error;
+        if (stream_ok && _expected_total_size > 0) {
+            const int64 final_uploaded
+                = _resume_offset + _received_stream_bytes;
+            if (final_uploaded != _expected_total_size) {
+                stream_ok      = false;
+                _error_message = "uploaded size mismatch";
+            }
+        }
 
+        if (_meta_received && !_finalize_submitted) {
+            FileWorkerPool::getInstance()->Submit(
+                FsTask::createEnd(_current_md5, stream_ok));
+            _finalize_submitted = true;
+        }
 
-    if (_request.has_meta()) {
-        handleMetaMessage();
-    } else if (_request.has_chunk()) {
-        handleChunkMessage();
+        BackPressureManager::getInstance()->notify_all();
+        _state = CallState::FINISH;
+
+        if (stream_ok) {
+            _response.set_success(true);
+            _response.set_message("OK");
+            _reader.Finish(_response, grpc::Status::OK, this);
+        } else {
+            const std::string reason
+                = _error_message.empty() ? "upload terminated before completion"
+                                         : _error_message;
+            _response.set_success(false);
+            _response.set_message(reason);
+            _reader.Finish(
+                _response,
+                grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, reason),
+                this);
+        }
+        return;
     }
 
-    // 继续读
+    if (_request.has_meta()) {
+        if (_meta_received) {
+            _has_error     = true;
+            _error_message = "duplicate meta message";
+        } else {
+            handleMetaMessage();
+        }
+    } else if (_request.has_chunk()) {
+        if (!_meta_received) {
+            _has_error     = true;
+            _error_message = "chunk before meta";
+        } else {
+            applyBackPressure();
+            _received_stream_bytes
+                += static_cast<int64>(_request.chunk().size());
+            handleChunkMessage();
+        }
+    } else {
+        _has_error     = true;
+        _error_message = "unknown upload payload";
+    }
+
+    if (_has_error) {
+        if (_meta_received && !_finalize_submitted) {
+            FileWorkerPool::getInstance()->Submit(
+                FsTask::createEnd(_current_md5, false));
+            _finalize_submitted = true;
+        }
+
+        BackPressureManager::getInstance()->notify_all();
+        _state = CallState::FINISH;
+        _response.set_success(false);
+        _response.set_message(_error_message);
+        _reader.Finish(
+            _response,
+            grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, _error_message),
+            this);
+        return;
+    }
+
     _reader.Read(&_request, this);
 }
-void UploadCallData::handleFinishState() {}
+
+void UploadCallData::handleFinishState() {
+    cleanup();
+}
 
 // 消息处理
 void UploadCallData::handleMetaMessage() {
-    const auto& meta  = _request.meta();
-    _current_md5      = meta.file_md5();
-    _current_filename = meta.file_name();
-    _resume_offset    = meta.resume_offset();   // 获取偏移量
+    const auto& meta = _request.meta();
 
-    processResumeLogic(meta);
+    _current_md5         = meta.file_md5();
+    _current_filename    = meta.file_name();
+    _resume_offset       = meta.resume_offset();
+    _expected_total_size = meta.total_size();
+    _meta_received       = true;
+
+    if (_current_md5.empty() || _current_filename.empty()) {
+        _has_error     = true;
+        _error_message = "invalid meta: empty file name or md5";
+        return;
+    }
+
+    if (_expected_total_size <= 0) {
+        _has_error     = true;
+        _error_message = "invalid meta: total_size <= 0";
+        return;
+    }
+
+    if (_resume_offset < 0 || _resume_offset > _expected_total_size) {
+        _has_error     = true;
+        _error_message = "invalid meta: resume_offset out of range";
+        return;
+    }
+
+    if (!processResumeLogic(meta)) {
+        _has_error = true;
+        if (_error_message.empty()) {
+            _error_message = "resume validation failed";
+        }
+        return;
+    }
 
     LOG_INFO(
-        "[UploadCallData] Upload request: file={}, md5={}, "
-        "resume_offset={}",
+        "[UploadCallData] Upload request: file={}, md5={}, resume_offset={}",
         _current_filename,
         _current_md5,
         _resume_offset);
-
 
     FileWorkerPool::getInstance()->Submit(
         FsTask::createMeta(_current_filename, _current_md5, _resume_offset));
@@ -99,74 +199,84 @@ void UploadCallData::handleChunkMessage() {
 ResumeValidationResult UploadCallData::validateResumeRequest(
     const std::string& md5, int64 requested_offset) {
 
+
     ResumeValidationResult result;
     result.should_allow_upload       = true;
-    result.should_clear_old_progress = true;
+    result.should_clear_old_progress = false;
+    result.reason.clear();
 
-    auto exists_result = FileRepository::ExistsUploadProgress(md5);
-    if (!exists_result.IsOK() || !exists_result.Value()) {
-        // 没有记录可以直接传输
+    if (requested_offset == 0) {
+        result.should_clear_old_progress = true;
+        result.reason                    = "fresh upload";
         return result;
     }
 
     auto progress_result = FileRepository::GetUploadProgress(md5);
     if (!progress_result.IsOK()) {
-        result.should_clear_old_progress = true;
+        result.should_allow_upload = false;
+        result.reason              = "resume requested but no progress found";
         return result;
     }
 
-    auto progress = progress_result.Value();
+    const auto progress = progress_result.Value();
 
-    // 1. 有正在进行的传输
-    if (progress.status == "uploading" && progress.uploaded_bytes > 0) {
-        // 新请求
-        if (requested_offset == 0) {
-            result.should_clear_old_progress = true;
-            result.reason = "New upload request, clearning old progresss";
-        } else {
-            // 续传请求
-            result.reason = "Resume upload with offset="
-                            + std::to_string(requested_offset);
-        }
+    if (progress.status == "completed") {
+        result.should_allow_upload = false;
+        result.reason              = "upload already completed";
         return result;
     }
 
-    // 2. 无效断点(offset)，自动清除
-    if (progress.uploaded_bytes == 0 || progress.status != "uploading") {
-        LOG_INFO(
-            "[UploadCallData] Clearing stale breakpoint for md5: {}, (offset = "
-            "{}, status = {})",
-            md5,
-            progress.uploaded_bytes,
-            progress.status);
+    auto verified_offset_result = FileRepository::VerifyUploadBlocks(
+        md5, progress.uploaded_bytes, FileRepository::RESUME_BLOCK_SIZE);
 
-        result.should_clear_old_progress = true;
-        result.reason                    = "Stale progress (offset = "
-                        + std::to_string(progress.uploaded_bytes)
-                        + ", status = " + progress.status + ")";
+    if (!verified_offset_result.IsOK()) {
+        result.should_allow_upload = false;
+        result.reason              = "failed to verify upload blocks";
+        return result;
     }
 
+    const int64 verified_offset = verified_offset_result.Value();
+
+    if (requested_offset != verified_offset) {
+        result.should_allow_upload = false;
+        result.reason              = "resume offset mismatch, requested="
+                        + std::to_string(requested_offset)
+                        + ", server=" + std::to_string(verified_offset);
+        return result;
+    }
+
+    result.reason = "resume accepted";
     return result;
 }
 
-void UploadCallData::processResumeLogic(const FileService::FileMeta& meta) {
-    // 验证断点续传请求
+bool UploadCallData::processResumeLogic(const FileService::FileMeta& meta) {
     auto validation = validateResumeRequest(_current_md5, _resume_offset);
 
-    // 清除旧的断点续传记录
+    if (!validation.should_allow_upload) {
+        _error_message = validation.reason;
+        return false;
+    }
+
     if (validation.should_clear_old_progress) {
         FileRepository::DeleteUploadProgress(_current_md5);
         FileRepository::DeleteBlockCheckpoints(_current_md5);
-        LOG_INFO("[UploadCallData] Cleared old progress {}", validation.reason);
+        LOG_INFO(
+            "[UploadCallData] Cleared old progress: {}", validation.reason);
     }
 
-    // 如果是新上传(offset = 0)
-    if (_resume_offset == 0) {
-        FileRepository::DeleteUploadProgress(_current_md5);
-        FileRepository::DeleteBlockCheckpoints(_current_md5);
+    auto save_result = FileRepository::SaveUploadProgress(
+        _current_md5,
+        _current_filename,
+        meta.total_size(),
+        _resume_offset,
+        "uploading");
+
+    if (!save_result.IsOK()) {
+        _error_message = "failed to save upload progress";
+        return false;
     }
-    FileRepository::SaveUploadProgress(
-        _current_md5, _current_filename, 0, _resume_offset, "uploading");
+
+    return true;
 }
 
 void UploadCallData::createNextHandler() {

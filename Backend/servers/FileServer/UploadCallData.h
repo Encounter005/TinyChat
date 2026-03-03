@@ -22,19 +22,20 @@ public:
 
 
 private:
-        void handleCreateState();
-        void handleProcessState(bool ok);
-        void handleFinishState();
+    void handleCreateState();
+    void handleProcessState(bool ok);
+    void handleFinishState();
 
-        // 消息处理
-        void handleMetaMessage();
-        void handleChunkMessage();
-        ResumeValidationResult validateResumeRequest(const std::string& md5, int64 requested_offset);
-        void processResumeLogic(const FileService::FileMeta& meta);
+    // 消息处理
+    void                   handleMetaMessage();
+    void                   handleChunkMessage();
+    ResumeValidationResult validateResumeRequest(
+        const std::string& md5, int64 requested_offset);
+    bool processResumeLogic(const FileService::FileMeta& meta);
 
-        void createNextHandler();
-        void applyBackPressure();
-        void cleanup();
+    void createNextHandler();
+    void applyBackPressure();
+    void cleanup();
 
 private:
     FileService::FileTransport::AsyncService* _service;
@@ -52,6 +53,15 @@ private:
     std::string _current_md5;
     std::string _current_filename;
     int64       _resume_offset = 0;
+
+    bool        _stream_started        = false;
+    bool        _spawned_next_handler  = false;
+    bool        _meta_received         = false;
+    bool        _has_error             = false;
+    bool        _finalize_submitted    = false;
+    int64       _expected_total_size   = 0;
+    int64       _received_stream_bytes = 0;
+    std::string _error_message;
 };
 
 #endif   // UPLOADCALLDATA_H_
