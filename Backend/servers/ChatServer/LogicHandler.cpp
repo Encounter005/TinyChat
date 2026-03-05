@@ -152,28 +152,6 @@ void LogicHandler::HandleLogin(
     }
 
 
-    auto recent_msgs_res
-        = MessagePersistenceRepository::GetRecentMessagesWithCache(uid, 7, 50);
-    if (recent_msgs_res.IsOK()) {
-        auto                     friend_messages = recent_msgs_res.Value();
-        std::vector<std::string> all_recent_messages;
-
-        for (const auto &fm : friend_messages) {
-            for (const auto &msg : fm.messages) {
-                all_recent_messages.push_back(msg);
-            }
-        }
-
-        if (!all_recent_messages.empty()) {
-            for (const auto &msg_json : all_recent_messages) {
-                root["recent_messages"].append(msg_json);
-            }
-        }
-    } else {
-        LOG_WARN(
-            "Failed to get recent messages for uid {}, continuing login", uid);
-    }
-
     // Bind session with user_uid
     session->SetUid(uid);
     UserManager::getInstance()->Bind(uid, session);
@@ -226,6 +204,59 @@ void LogicHandler::HandleSearch(
     }
     MsgId id = static_cast<MsgId>(msg.msg_id);
     session->Send(ReqToRsp(id), root.toStyledString());
+}
+
+void LogicHandler::HandlePullHistory(
+    std::shared_ptr<Session> session, const Message &msg) {
+    LOG_INFO("[ChatServer] read MsgId::ID_PULL_HISTORY_MSG_REQ");
+    Json::Value src, root;
+    if (!ParseJson(msg.body, src)) {
+        root["error"] = static_cast<int>(ErrorCodes::ERROR_JSON);
+        session->Send(MsgId::ID_PULL_HISTORY_MSG_RSP, root.toStyledString());
+        return;
+    }
+
+    const int uid = src["uid"].asInt();
+    int days = src.isMember("days") ? src["days"].asInt() : 7;
+    int limit = src.isMember("limit") ? src["limit"].asInt() : 50;
+    if (days <= 0) {
+        days = 7;
+    }
+    if (limit <= 0) {
+        limit = 50;
+    }
+
+    auto bound_session = UserManager::getInstance()->GetSession(uid);
+    if (!bound_session || bound_session->Id() != session->Id()) {
+        root["error"] = static_cast<int>(ErrorCodes::UID_INVALID);
+        root["uid"] = uid;
+        session->Send(MsgId::ID_PULL_HISTORY_MSG_RSP, root.toStyledString());
+        return;
+    }
+
+    auto recent_msgs_res = MessagePersistenceRepository::GetRecentMessagesWithCache(uid, days, limit);
+    if (!recent_msgs_res.IsOK()) {
+        root["error"] = static_cast<int>(recent_msgs_res.Error());
+        root["uid"] = uid;
+        session->Send(MsgId::ID_PULL_HISTORY_MSG_RSP, root.toStyledString());
+        return;
+    }
+
+    root["error"] = static_cast<int>(ErrorCodes::SUCCESS);
+    root["uid"] = uid;
+
+    Json::Reader reader;
+    for (const auto &fm : recent_msgs_res.Value()) {
+        for (const auto &msg_json : fm.messages) {
+            Json::Value msg_obj;
+            if (!reader.parse(msg_json, msg_obj) || !msg_obj.isObject()) {
+                continue;
+            }
+            root["messages"].append(msg_obj);
+        }
+    }
+
+    session->Send(MsgId::ID_PULL_HISTORY_MSG_RSP, root.toStyledString());
 }
 
 void LogicHandler::AddFriendApply(

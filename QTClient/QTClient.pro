@@ -43,6 +43,9 @@ SOURCES += \
     login.cpp \
     main.cpp \
     mainwindow.cpp \
+    messagecachedb.cpp \
+    messagecacherepository.cpp \
+    messagesynccoordinator.cpp \
     messagetextedit.cpp \
     picturebubble.cpp \
     register.cpp \
@@ -91,6 +94,10 @@ HEADERS += \
     loadingdialog.h \
     login.h \
     mainwindow.h \
+    messagecachedb.h \
+    messagecacherepository.h \
+    messagesynccoordinator.h \
+    messagesyncprotocol.h \
     messagetextedit.h \
     picturebubble.h \
     register.h \
@@ -138,7 +145,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 RESOURCES += \
     resources.qrc
 
-QT += core gui network quick
+QT += core gui network quick testlib sql
 
 CONFIG += link_pkgconfig
 

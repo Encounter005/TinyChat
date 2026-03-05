@@ -104,7 +104,7 @@ void ChatPage::on_send_btn_clicked() {
             QJsonObject obj;
             QByteArray utf8Message = msgList[i].content.toUtf8();
             obj["content"] = QString::fromUtf8(utf8Message);
-            obj["msgid"] = ReqId::ID_CHAT_LOGIN_REQ;
+            obj["msgid"] = uuidString;
             textArray.append(obj);
             auto txt_msg = std::make_shared<TextChatData>(
                 uuidString, obj["content"].toString(), user_info->_uid,

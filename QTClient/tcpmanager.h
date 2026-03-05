@@ -4,6 +4,7 @@
 #include "singleton.h"
 #include "global.h"
 #include "userdata.h"
+#include "messagesynccoordinator.h"
 #include <QTcpSocket>
 #include <QObject>
 
@@ -26,6 +27,9 @@ private:
     quint16 _message_id;
     quint32 _message_len;
     QMap<ReqId, std::function<void(ReqId id, int len, QByteArray data)>> _handlers;
+
+    MessageSyncCoordinator _sync;
+    bool _wait_history_rsp{false};
 
     QTimer* _heartbeat_timer;       // 心跳定时器
     QTimer* _timeout_timer;

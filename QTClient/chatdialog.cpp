@@ -7,7 +7,10 @@
 #include "contactuserlist.h"
 #include "loadingdialog.h"
 #include "customedit.h"
+#include "messagecachedb.h"
+#include "messagecacherepository.h"
 #include <QAction>
+#include <QDateTime>
 #include <QRandomGenerator>
 #include <QLineEdit>
 #include <QPixmap>
@@ -548,6 +551,12 @@ void ChatDialog::slot_append_send_chat_msg(std::shared_ptr<TextChatData> msgdata
         std::vector<std::shared_ptr<TextChatData>> msg_vec;
         msg_vec.push_back(msgdata);
         UserManager::getInstance()->AppendFriendChatMsg(_cur_chat_uid,msg_vec);
+        auto ownerUid = UserManager::getInstance()->GetUid();
+        MessageCacheDb db;
+        if(db.OpenForOwner(ownerUid)) {
+            MessageCacheRepository repo(db);
+            repo.SaveOne(ownerUid, *msgdata, QDateTime::currentSecsSinceEpoch());
+        }
         return;
     }
 
@@ -567,6 +576,16 @@ void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg)
         //更新当前聊天页面记录
         UpdateChatMsg(msg->_chat_msgs);
         UserManager::getInstance()->AppendFriendChatMsg(msg->_from_uid,msg->_chat_msgs);
+        auto ownerUid = UserManager::getInstance()->GetUid();
+        MessageCacheDb db;
+        if(db.OpenForOwner(ownerUid)) {
+            MessageCacheRepository repo(db);
+            qint64 ts = QDateTime::currentSecsSinceEpoch();
+            for(const auto& one : msg->_chat_msgs) {
+                if(!one) continue;
+                repo.SaveOne(ownerUid, *one, ts++);
+            }
+        }
         return;
     }
 
@@ -581,6 +600,16 @@ void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg)
     item->setSizeHint(chat_user_wid->sizeHint());
     chat_user_wid->updateLastMsg(msg->_chat_msgs);
     UserManager::getInstance()->AppendFriendChatMsg(msg->_from_uid,msg->_chat_msgs);
+    auto ownerUid = UserManager::getInstance()->GetUid();
+    MessageCacheDb db;
+    if(db.OpenForOwner(ownerUid)) {
+        MessageCacheRepository repo(db);
+        qint64 ts = QDateTime::currentSecsSinceEpoch();
+        for(const auto& one : msg->_chat_msgs) {
+            if(!one) continue;
+            repo.SaveOne(ownerUid, *one, ts++);
+        }
+    }
     ui->chat_user_list->insertItem(0, item);
     ui->chat_user_list->setItemWidget(item, chat_user_wid);
     _chat_items_added.insert(msg->_from_uid, item);
@@ -866,4 +895,3 @@ void ChatDialog::loadMoreChatUser()
     }
 
 }
-

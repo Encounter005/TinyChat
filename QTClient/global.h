@@ -41,6 +41,8 @@ enum ReqId{
     ID_NOTIFY_OFF_LINE_REQ = 120, //通知用户下线
     ID_HEART_BEAT_REQ = 121,      //心跳请求
     ID_HEARTBEAT_RSP = 122,       //心跳回复
+    ID_PULL_HISTORY_MSG_REQ = 123, // 消息拉取请求
+    ID_PULL_HISTORY_MSG_RSP = 124, // 消息拉取回复
 };
 
 

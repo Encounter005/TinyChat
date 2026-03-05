@@ -56,37 +56,13 @@ void TcpManager::initHandlers()
             qDebug("Find Friend List");
             UserManager::getInstance()->AppendFriendList(jsonObj["friend_list"].toArray());
         }
-        //渲染消息记录
-        if(jsonObj.contains("recent_messages")) {
-            auto recentMsgs = jsonObj["recent_messages"].toArray();
-            for(const auto& recentMsg : recentMsgs) {
-                QJsonDocument msgDoc = QJsonDocument::fromJson(recentMsg.toString().toUtf8());
-                if(msgDoc.isNull() || !msgDoc.isObject()) continue;
 
-                QJsonObject msgObj = msgDoc.object();
-                int fromuid = msgObj["fromuid"].toInt();
-                int touid = msgObj["touid"].toInt();
-                auto textArray = msgObj["text_array"].toArray();
-
-                int friendUid = (touid == uid) ? fromuid : touid;
-
-                std::vector<std::shared_ptr<TextChatData>> msgVec;
-                for(const auto& txtItem : textArray) {
-                    auto txtObj = txtItem.toObject();
-                    QString msgId = txtObj["msgid"].toString();
-                    QString content = txtObj["content"].toString();
-                    auto textChatData = std::make_shared<TextChatData>(msgId, content, fromuid, touid);
-                    msgVec.push_back(textChatData);
-                }
-
-                if(!msgVec.empty()) {
-                    UserManager::getInstance()->AppendFriendChatMsg(friendUid, msgVec);
-                }
-            }
+        const bool hasLocalHistory = _sync.BootStrap(uid);
+        if (hasLocalHistory) {
+            emit sig_switch_chat_dialog();
+        } else {
+            _wait_history_rsp = true;
         }
-        
-        // emit chatDialog
-        emit sig_switch_chat_dialog();
     });
 
     _handlers.insert(ReqId::ID_SEARCH_USER_RSP,[this](ReqId id, int len , QByteArray data){
@@ -327,6 +303,49 @@ void TcpManager::initHandlers()
             sendHeartbeat();
         }
     });
+
+
+    _handlers.insert(ID_PULL_HISTORY_MSG_RSP, [this](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(id);
+        Q_UNUSED(len);
+        updateLastResponseTime();
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (jsonDoc.isNull() || !jsonDoc.isObject()) {
+            if (_wait_history_rsp) {
+                _wait_history_rsp = false;
+                emit sig_switch_chat_dialog();
+            }
+            return;
+        }
+        QJsonObject jsonObj = jsonDoc.object();
+        if (jsonObj["error"].toInt() != ErrorCodes::SUCCESS) {
+            if (_wait_history_rsp) {
+                _wait_history_rsp = false;
+                emit sig_switch_chat_dialog();
+            }
+            return;
+        }
+        const int uid = jsonObj["uid"].toInt();
+        QJsonArray messages = jsonObj["messages"].toArray();
+        std::vector<std::shared_ptr<TextChatData>> allMsgs;
+        for (const auto& m : messages) {
+            QJsonObject msgObj = m.toObject();
+            int fromuid = msgObj["fromuid"].toInt();
+            int touid = msgObj["touid"].toInt();
+            QJsonArray textArray = msgObj["text_array"].toArray();
+            for (const auto& t : textArray) {
+                QJsonObject tObj = t.toObject();
+                allMsgs.push_back(std::make_shared<TextChatData>(
+                    tObj["msgid"].toString(), tObj["content"].toString(), fromuid, touid));
+            }
+        }
+        _sync.ApplyHistory(uid, allMsgs);
+        if (_wait_history_rsp) {
+            _wait_history_rsp = false;
+            emit sig_switch_chat_dialog();
+        }
+    });
+
 }
 
 void TcpManager::CloseConnection()
@@ -355,7 +374,7 @@ TcpManager::TcpManager() : _host(""), _recv_pending(false), _message_id(0), _mes
     _is_heartbeat_enabled = settings.value("ChatServer/heartbeat_enabled").toBool();
     _connection_timeout = settings.value("ChatServer/connection_timeout").toInt();
 
-QObject::connect(&_socket, &QTcpSocket::connected, [&](){
+    QObject::connect(&_socket, &QTcpSocket::connected, [&](){
         qDebug() << "Connected to the server";
         emit sig_con_success(true);
     });
@@ -397,6 +416,11 @@ QObject::connect(&_socket, &QTcpSocket::connected, [&](){
     });
 
     QObject::connect(this, &TcpManager::sig_send_data, this, &TcpManager::slot_send_data);
+    QObject::connect(&_sync, &MessageSyncCoordinator::sig_request_history, this, [this](int uid, int days, int limit){
+        QJsonObject obj = BuildHistoryRequest(uid, days, limit);
+        QJsonDocument doc(obj);
+        emit sig_send_data(ReqId::ID_PULL_HISTORY_MSG_REQ, QString::fromUtf8(doc.toJson(QJsonDocument::Compact)));
+    });
 }
 
 void TcpManager::startHeartbeat()

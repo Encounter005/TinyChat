@@ -24,6 +24,7 @@ public:
     static void HandleChatTextMsg(
         const ChatServerInfo& server_info, std::shared_ptr<Session> session,
         const Message& msg);
+    static void HandlePullHistory(std::shared_ptr<Session> session, const Message& msg);
     static void HandleHeartBeat(std::shared_ptr<Session> session, const Message& msg);
 
 private:

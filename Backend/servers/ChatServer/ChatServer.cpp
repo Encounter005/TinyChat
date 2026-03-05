@@ -77,6 +77,10 @@ void ChatServer::Register() {
         MsgId::ID_HEART_BEAT_REQ, [this](auto session, const auto& msg) {
             LogicHandler::HandleHeartBeat(session, msg);
         });
+    _dispatcher->Register(
+        MsgId::ID_PULL_HISTORY_MSG_REQ, [this](auto session, const auto& msg) {
+            LogicHandler::HandlePullHistory(session, msg);
+        });
 }
 
 void ChatServer::DoAccept() {

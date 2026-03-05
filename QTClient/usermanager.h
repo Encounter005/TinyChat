@@ -37,6 +37,7 @@ public:
     std::shared_ptr<FriendInfo> GetFriendById(int uid);
     std::vector<std::shared_ptr<FriendInfo>> GetConListPerPage();
     void UpdateContactLoadedCount();
+    void AppendMessagesForOwner(int ownerUid, const std::vector<std::shared_ptr<TextChatData>> &msgs);
 
 
 private:

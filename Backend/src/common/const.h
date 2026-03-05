@@ -102,6 +102,8 @@ enum class MsgId : uint16_t {
     ID_NOTIFY_OFF_LINE_REQ      = 120,   // 通知用户下线
     ID_HEART_BEAT_REQ           = 121,   // 心跳请求
     ID_HEARTBEAT_RSP            = 122,   // 心跳回复
+    ID_PULL_HISTORY_MSG_REQ     = 123,   // 拉取历史消息请求
+    ID_PULL_HISTORY_MSG_RSP     = 124,   // 拉取历史消息回复
 };
 
 constexpr MsgId INVALID_MSG_ID = static_cast<MsgId>(0);
@@ -118,6 +120,8 @@ constexpr MsgId ReqToRsp(MsgId req) {
     case MsgId::ID_TEXT_CHAT_MSG_REQ: return MsgId::ID_TEXT_CHAT_MSG_RSP;
 
     case MsgId::ID_HEART_BEAT_REQ: return MsgId::ID_HEARTBEAT_RSP;
+
+    case MsgId::ID_PULL_HISTORY_MSG_REQ: return MsgId::ID_PULL_HISTORY_MSG_RSP;
 
     default: return INVALID_MSG_ID;
     }

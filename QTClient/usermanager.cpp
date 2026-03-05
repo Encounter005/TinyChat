@@ -227,6 +227,14 @@ void UserManager::UpdateContactLoadedCount()
 
 }
 
+void UserManager::AppendMessagesForOwner(int ownerUid, const std::vector<std::shared_ptr<TextChatData> > &msgs)
+{
+    for(const auto& msg : msgs) {
+        const int friendUid = (msg->_from_uid == ownerUid) ? msg->_to_uid : msg->_from_uid;
+        AppendFriendChatMsg(friendUid, {msg});
+    }
+}
+
 UserManager::UserManager() : _user_info(nullptr), _chat_loaded(0), _contact_loaded(0) {}
 
 void UserManager::slot_add_friend_rsp(std::shared_ptr<AuthRsp> rsp)
