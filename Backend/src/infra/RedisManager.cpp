@@ -302,6 +302,16 @@ long long RedisManager::HIncrBy(
         context, "HINCRBY %s %s %lld", hkey.c_str(), field.c_str(), delta);
     if (reply == nullptr) {
         LOG_ERROR(
+            "[RedisManager] HINCRBY failed: null reply, hash={}, field={}, "
+            "delta={}",
+            hkey,
+            field,
+            delta);
+        return -1;
+    }
+
+    if (reply->type != REDIS_REPLY_INTEGER) {
+        LOG_ERROR(
             "[RedisManager] HINCRBY wrong reply type: hash={}, field={}, "
             "type={}",
             hkey,
@@ -310,6 +320,7 @@ long long RedisManager::HIncrBy(
         freeReplyObject(reply);
         return -1;
     }
+
     auto new_value = reply->integer;
     freeReplyObject(reply);
     LOG_INFO(

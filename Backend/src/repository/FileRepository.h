@@ -103,6 +103,7 @@ public:
     static Result<void> SetDownloadExpire(
         const std::string& file_name, const std::string& session_id,
         int seconds);
+    static std::string CalculateMD5(const std::string& data);
 
 private:
     FileRepository() = default;
@@ -113,7 +114,6 @@ private:
     static std::string FormatDownloadProgressKey(
         const std::string& file_name, const std::string& session_id);
     static int         GetCurrentTimestamp();
-    static std::string CalculateMD5(const std::string& data);
 };
 
 

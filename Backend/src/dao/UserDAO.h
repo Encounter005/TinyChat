@@ -250,8 +250,32 @@ public:
         });
     }
 
-private:
-    UserDAO() = default;
+    Result<void> UpdateUserIcon(int uid, const std::string& icon) {
+        return executeWithConn<void>([&](sql::Connection* conn) {
+            std::unique_ptr<sql::PreparedStatement> stmt(conn->prepareStatement(
+                "UPDATE user SET icon = ? WHERE uid = ?"));
+            stmt->setString(1, icon);
+            stmt->setInt(2, uid);
+
+            int affected = stmt->executeUpdate();
+            if (affected > 0) return Result<void>::OK();
+
+            return Result<void>::Error(ErrorCodes::MYSQL_UNKNOWN_ERROR);
+        });
+    }
+
+    Result<std::vector<int>> FindFriendOwnersByFriendId(int friend_id) {
+        return executeWithConn<std::vector<int>>([&](sql::Connection* conn) {
+            std::vector<int>                        owners;
+            std::unique_ptr<sql::PreparedStatement> stmt(conn->prepareStatement(
+                "SELECT self_id FROM friend WHERE friend_id = ? "));
+            stmt->setInt(1, friend_id);
+            std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+            while (res->next()) owners.push_back(res->getInt("self_id"));
+            return Result<std::vector<int>>::OK(owners);
+        });
+    }
 };
+
 
 #endif   // USERDAO_H_

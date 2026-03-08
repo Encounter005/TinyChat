@@ -43,6 +43,7 @@ public:
 
     static Result<void> SaveOfflineMessage(int uid, const std::string& msg);
     static Result<std::vector<std::string>> GetOfflineMessages(int uid);
+    static Result<void> UpdateUserIcon(int uid, const std::string& icon);
 
 private:
     UserRepository()  = default;

@@ -141,8 +141,9 @@ Result<std::vector<std::shared_ptr<ApplyInfo>>> UserRepository::GetApplyList(
         if (reader.parse(list_str, root) && root.isArray()) {
             std::vector<std::shared_ptr<ApplyInfo>> applyList;
             for (const auto& item : root) {
-                applyList.push_back(std::make_shared<ApplyInfo>(
-                    ApplyInfoJsonMapper::FromJson(item)));
+                applyList.push_back(
+                    std::make_shared<ApplyInfo>(
+                        ApplyInfoJsonMapper::FromJson(item)));
             }
             LOG_INFO("[Cache] Hit cache for apply list: {}", uid);
             return Result<std::vector<std::shared_ptr<ApplyInfo>>>::OK(
@@ -164,7 +165,7 @@ Result<std::vector<std::shared_ptr<ApplyInfo>>> UserRepository::GetApplyList(
 
 Result<std::string> UserRepository::FindUserIpServerByUid(const int& uid) {
     auto        redisManager = RedisManager::getInstance();
-    std::string        key          = USER_IP_PREFIX + std::to_string(uid);
+    std::string key          = USER_IP_PREFIX + std::to_string(uid);
     std::string servername   = "";
     redisManager->Get(key, servername);
     if (!servername.empty()) {
@@ -186,8 +187,8 @@ Result<ArrayUserInfo> UserRepository::GetFriendList(int uid) {
         if (reader.parse(list_str, root) && root.isArray()) {
             ArrayUserInfo friendList;
             for (const auto& item : root) {
-                friendList.push_back(std::make_shared<UserInfo>(
-                    UserJsonMapper::FromJson(item)));
+                friendList.push_back(
+                    std::make_shared<UserInfo>(UserJsonMapper::FromJson(item)));
             }
             LOG_INFO("[Cache] Hit cache for friend list: {}", uid);
             return Result<ArrayUserInfo>::OK(friendList);
@@ -231,9 +232,10 @@ void UserRepository::UnBindUserIpWithServer(const int& uid) {
     LOG_INFO("[RedisManager] Del ip:{}", uid);
 }
 
-Result<void> UserRepository::SaveOfflineMessage(int uid, const std::string& msg) {
-    auto redisManager = RedisManager::getInstance();
-    std::string key = OFFLINE_MSG_PREFIX + std::to_string(uid);
+Result<void> UserRepository::SaveOfflineMessage(
+    int uid, const std::string& msg) {
+    auto        redisManager = RedisManager::getInstance();
+    std::string key          = OFFLINE_MSG_PREFIX + std::to_string(uid);
     if (redisManager->RPush(key, msg)) {
         return Result<void>::OK();
     }
@@ -241,12 +243,29 @@ Result<void> UserRepository::SaveOfflineMessage(int uid, const std::string& msg)
 }
 
 Result<std::vector<std::string>> UserRepository::GetOfflineMessages(int uid) {
-    auto redisManager = RedisManager::getInstance();
-    std::string key = OFFLINE_MSG_PREFIX + std::to_string(uid);
+    auto                     redisManager = RedisManager::getInstance();
+    std::string              key = OFFLINE_MSG_PREFIX + std::to_string(uid);
     std::vector<std::string> values;
     if (redisManager->LRange(key, 0, -1, values)) {
         redisManager->Del(key);
         return Result<std::vector<std::string>>::OK(values);
     }
     return Result<std::vector<std::string>>::Error(ErrorCodes::REDIS_ERROR);
+}
+
+
+Result<void> UserRepository::UpdateUserIcon(int uid, const std::string& icon) {
+    auto res = UserDAO::getInstance()->UpdateUserIcon(uid, icon);
+    if (!res.IsOK()) return res;
+
+    auto redis = RedisManager::getInstance();
+    redis->Del(USER_BASE_PREFIX + std::to_string(uid));
+
+    auto ownersRes = UserDAO::getInstance()->FindFriendOwnersByFriendId(uid);
+    if (ownersRes.IsOK()) {
+        for (int ownerUid : ownersRes.Value()) {
+            redis->Del(FRIEND_LIST_PREFIX + std::to_string(ownerUid));
+        }
+    }
+    return Result<void>::OK();
 }
