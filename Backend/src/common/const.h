@@ -9,6 +9,7 @@
 #include <json/json.h>
 #include <json/reader.h>
 #include <json/value.h>
+#include <random>
 
 namespace beast = boost::beast;
 namespace http  = beast::http;
@@ -16,6 +17,13 @@ namespace net   = boost::asio;
 using tcp       = boost::asio::ip::tcp;
 
 class ConfigManager;
+
+#include <array>
+#include <cctype>
+#include <string>
+#include <vector>
+
+
 
 enum class ErrorCodes : int {
     SUCCESS                 = 0,
@@ -40,41 +48,41 @@ enum class ErrorCodes : int {
 
 constexpr const char* ErrorMsg(ErrorCodes code) {
     switch (code) {
-    case ErrorCodes::SUCCESS:                 return "success";
+    case ErrorCodes::SUCCESS: return "success";
 
-    case ErrorCodes::ERROR_JSON:              return "json parse error";
+    case ErrorCodes::ERROR_JSON: return "json parse error";
 
-    case ErrorCodes::RPC_FAILED:              return "rpc request failed";
+    case ErrorCodes::RPC_FAILED: return "rpc request failed";
 
-    case ErrorCodes::VARIFY_EXPIRED:          return "verify code expired";
+    case ErrorCodes::VARIFY_EXPIRED: return "verify code expired";
 
-    case ErrorCodes::VARIFY_CODE_ERROR:       return "verify code error";
+    case ErrorCodes::VARIFY_CODE_ERROR: return "verify code error";
 
-    case ErrorCodes::USER_EXIST:              return "user already exists";
+    case ErrorCodes::USER_EXIST: return "user already exists";
 
-    case ErrorCodes::PASSWORD_ERROR:          return "password error";
+    case ErrorCodes::PASSWORD_ERROR: return "password error";
 
-    case ErrorCodes::EMAIL_NOT_MATCH:         return "email not match";
+    case ErrorCodes::EMAIL_NOT_MATCH: return "email not match";
 
-    case ErrorCodes::MYSQL_CONNECTION_ERROR:  return "mysql connection error";
+    case ErrorCodes::MYSQL_CONNECTION_ERROR: return "mysql connection error";
 
-    case ErrorCodes::SQL_ERROR:               return "sql error";
+    case ErrorCodes::SQL_ERROR: return "sql error";
 
-    case ErrorCodes::SQL_STAND_EXCEPTION:     return "sql standard exception";
+    case ErrorCodes::SQL_STAND_EXCEPTION: return "sql standard exception";
 
-    case ErrorCodes::MYSQL_UNKNOWN_ERROR:     return "mysql unknown error";
+    case ErrorCodes::MYSQL_UNKNOWN_ERROR: return "mysql unknown error";
 
     case ErrorCodes::SQL_OPERATION_EXCEPTION: return "sql operation exception";
 
-    case ErrorCodes::PASSWORD_RESET_ERROR:    return "password reset error";
+    case ErrorCodes::PASSWORD_RESET_ERROR: return "password reset error";
 
-    case ErrorCodes::UID_INVALID:             return "uid invalid";
+    case ErrorCodes::UID_INVALID: return "uid invalid";
 
-    case ErrorCodes::TOKEN_INVALID:           return "token invalid";
+    case ErrorCodes::TOKEN_INVALID: return "token invalid";
 
-    case ErrorCodes::REDIS_ERROR:             return "redis operation error";
+    case ErrorCodes::REDIS_ERROR: return "redis operation error";
 
-    case ErrorCodes::APPLYFRIEND_ERROR:       return "apply friend error";
+    case ErrorCodes::APPLYFRIEND_ERROR: return "apply friend error";
 
     default: return "unknown error";
     }
