@@ -30,20 +30,29 @@ ChatServerInfo StatusServiceImpl::SelectChatServer() {
     std::lock_guard<std::mutex> lock(_server_mtx);
     int                         MIN = INT_MAX;
     ChatServerInfo              best_server;
+    bool isFound = false;
     for (const auto& [name, server] : _servers) {
-        if(!ChatServerRepository::isServerActivated(name)) { // 如果当前的服务器没有在线，就不注册当前服务器的信息
+        if (!ChatServerRepository::isServerActivated(
+                name)) {   // 如果当前的服务器没有在线，就不注册当前服务器的信息
             LOG_WARN("[StatusServer] {} is offline! ", name);
             continue;
         }
         auto count = ChatServerRepository::GetConnectionCount(name);
-        if(count < MIN) {
-            MIN = count;
+        if (count < MIN) {
+            MIN         = count;
             best_server = server;
+            isFound = true;
         }
     }
+    
+    if (!isFound) {
+        LOG_WARN("[StatusServer] no active chat server available");
+        return ChatServerInfo{}; // name 为空
+    }
+
     LOG_INFO("best server is: {}, connection count is: {}", best_server.name, MIN);
-    ChatServerRepository::IncrConnection(best_server.name);
     return best_server;
+    
 }
 
 Status StatusServiceImpl::GetChatServer(
@@ -56,6 +65,9 @@ Status StatusServiceImpl::GetChatServer(
     }
 
     auto server = SelectChatServer();
+    if(server.name.empty()) {
+        return Status(grpc::StatusCode::UNAVAILABLE, "No active chat server available");
+    }
 
     reply->set_host(server.host);
     reply->set_port(server.port);
