@@ -1,4 +1,5 @@
 #include "chatuserwidget.h"
+#include "avatarcache.h"
 #include "ui_chatuserwidget.h"
 #include "listitembase.h"
 
@@ -7,6 +8,32 @@ ChatUserWidget::ChatUserWidget(QWidget *parent) :  ListItemBase(parent)
 {
     ui->setupUi(this);
     SetItemType(ListItemType::CHAT_USER_ITEM);
+
+    connect(AvatarCache::getInstance().get(),
+            &AvatarCache::avatarReady,
+            this,
+            [this](int uid, const QString&) {
+                if (!_user_info || uid != _user_info->_uid) {
+                    return;
+                }
+                QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+                    _user_info->_uid, _user_info->_icon);
+                ui->icon_label->setPixmap(pixmap.scaled(
+                    ui->icon_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            });
+
+    connect(AvatarCache::getInstance().get(),
+            &AvatarCache::avatarUpdated,
+            this,
+            [this](int uid, const QString&) {
+                if (!_user_info || uid != _user_info->_uid) {
+                    return;
+                }
+                QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+                    _user_info->_uid, _user_info->_icon);
+                ui->icon_label->setPixmap(pixmap.scaled(
+                    ui->icon_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            });
 }
 
 ChatUserWidget::~ChatUserWidget()
@@ -18,7 +45,8 @@ void ChatUserWidget::SetInfo(std::shared_ptr<UserInfo> user_info)
 {
     _user_info = user_info;
     // 加载图片
-    QPixmap pixmap(_user_info->_icon);
+    QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+        _user_info->_uid, _user_info->_icon);
 
     // 设置图片自动缩放
     ui->icon_label->setPixmap(pixmap.scaled(ui->icon_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
@@ -32,7 +60,8 @@ void ChatUserWidget::SetInfo(std::shared_ptr<FriendInfo> friend_info)
 {
     _user_info = std::make_shared<UserInfo>(friend_info);
     // 加载图片
-    QPixmap pixmap(_user_info->_icon);
+    QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+        _user_info->_uid, _user_info->_icon);
 
     // 设置图片自动缩放
     ui->icon_label->setPixmap(pixmap.scaled(ui->icon_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));

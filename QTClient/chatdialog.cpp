@@ -4,6 +4,7 @@
 #include "ui_chatdialog.h"
 #include "tcpmanager.h"
 #include "chatuserwidget.h"
+#include "avatarcache.h"
 #include "contactuserlist.h"
 #include "loadingdialog.h"
 #include "customedit.h"
@@ -61,11 +62,40 @@ ChatDialog::ChatDialog(QWidget *parent)
     // load user
     connect(ui->chat_user_list, &ChatUserList::sig_loading_chat_user, this, &ChatDialog::slot_loading_chat_user);
     auto user_info = UserManager::getInstance()->GetUserInfo();
-    QPixmap pixmap(user_info->_icon);
+    QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+        user_info->_uid, user_info->_icon);
     ui->side_head_label->setPixmap(pixmap);
     QPixmap scaledPixmap = pixmap.scaled(ui->side_head_label->size(), Qt::KeepAspectRatio);
     ui->side_head_label->setPixmap(scaledPixmap);
     ui->side_head_label->setScaledContents(true);
+
+    connect(AvatarCache::getInstance().get(),
+            &AvatarCache::avatarReady,
+            this,
+            [this](int uid, const QString&) {
+                auto user_info = UserManager::getInstance()->GetUserInfo();
+                if (!user_info || uid != user_info->_uid) {
+                    return;
+                }
+                QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+                    user_info->_uid, user_info->_icon);
+                ui->side_head_label->setPixmap(
+                    pixmap.scaled(ui->side_head_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            });
+
+    connect(AvatarCache::getInstance().get(),
+            &AvatarCache::avatarUpdated,
+            this,
+            [this](int uid, const QString&) {
+                auto user_info = UserManager::getInstance()->GetUserInfo();
+                if (!user_info || uid != user_info->_uid) {
+                    return;
+                }
+                QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+                    user_info->_uid, user_info->_icon);
+                ui->side_head_label->setPixmap(
+                    pixmap.scaled(ui->side_head_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            });
 
     ui->side_chat_label->setProperty("state", "normal");
     ui->side_chat_label->SetState("normal",

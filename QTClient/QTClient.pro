@@ -14,6 +14,7 @@ SOURCES += \
     applyfriendlist.cpp \
     applyfriendpage.cpp \
     authenfriend.cpp \
+    avatarcache.cpp \
     bubbleframe.cpp \
     chatdialog.cpp \
     chatitembase.cpp \
@@ -65,6 +66,7 @@ HEADERS += \
     applyfriendlist.h \
     applyfriendpage.h \
     authenfriend.h \
+    avatarcache.h \
     bubbleframe.h \
     chatdialog.h \
     chatitembase.h \

@@ -1,5 +1,6 @@
 #include "chatpage.h"
 #include "chatitembase.h"
+#include "avatarcache.h"
 #include "clickedlabel.h"
 #include "picturebubble.h"
 #include "qjsonarray.h"
@@ -56,7 +57,6 @@ void ChatPage::on_send_btn_clicked() {
     auto pTextEdit = ui->chatEdit;
     ChatRole role = ChatRole::SELF;
     QString userName = user_info->_name;
-    QString userIcon = user_info->_icon;
     const QVector<MsgInfo> &msgList = pTextEdit->getMsgList();
     QJsonObject textObj;
     QJsonArray textArray;
@@ -75,7 +75,8 @@ void ChatPage::on_send_btn_clicked() {
         QString type = msgList[i].msgFlag;
         ChatItemBase *pChatItem = new ChatItemBase(role);
         pChatItem->setUserName(userName);
-        pChatItem->setUserIcon(QPixmap(userIcon));
+        pChatItem->setUserIcon(AvatarCache::getInstance()->PixmapOrPlaceholder(
+            user_info->_uid, user_info->_icon));
         QWidget *pBubble = nullptr;
         if (type == "text") {
             // 生成唯一id
@@ -155,7 +156,8 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
         ChatItemBase *pChatItem = new ChatItemBase(role);
 
         pChatItem->setUserName(self_info->_name);
-        pChatItem->setUserIcon(QPixmap(self_info->_icon));
+        pChatItem->setUserIcon(AvatarCache::getInstance()->PixmapOrPlaceholder(
+            self_info->_uid, self_info->_icon));
         QWidget *pBubble = nullptr;
         pBubble = new TextBubble(role, msg->_msg_content);
         pChatItem->setWidget(pBubble);
@@ -169,7 +171,8 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
             return;
         }
         pChatItem->setUserName(friend_info->_name);
-        pChatItem->setUserIcon(QPixmap(friend_info->_icon));
+        pChatItem->setUserIcon(AvatarCache::getInstance()->PixmapOrPlaceholder(
+            friend_info->_uid, friend_info->_icon));
         QWidget *pBubble = nullptr;
         pBubble = new TextBubble(role, msg->_msg_content);
         pChatItem->setWidget(pBubble);

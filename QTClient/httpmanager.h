@@ -33,6 +33,7 @@ signals:
     void sig_reg_mod_finish(ReqId id, QString res, ErrorCodes error_code);
     void sig_reset_mod_finish(ReqId id, QString res, ErrorCodes error_code);
     void sig_login_mod_finish(ReqId id, QString res, ErrorCodes error_code);
+    void sig_user_mod_finish(ReqId id, QString res, ErrorCodes error_code);
 };
 
 

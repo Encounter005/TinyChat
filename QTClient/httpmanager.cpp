@@ -46,6 +46,9 @@ void HttpManager::slot_http_finish(ReqId id, QString res, ErrorCodes error_code,
     case Modules::LOGINMOD:
         emit sig_login_mod_finish(id, res, error_code);
         break;
+    case Modules::USERMOD:
+        emit sig_user_mod_finish(id, res, error_code);
+        break;
     }
 }
 HttpManager::HttpManager() {

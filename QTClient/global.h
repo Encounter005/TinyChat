@@ -43,6 +43,7 @@ enum ReqId{
     ID_HEARTBEAT_RSP = 122,       //心跳回复
     ID_PULL_HISTORY_MSG_REQ = 123, // 消息拉取请求
     ID_PULL_HISTORY_MSG_RSP = 124, // 消息拉取回复
+    ID_UPDATE_ICON = 125, // 头像上传
 };
 
 
@@ -56,6 +57,7 @@ enum Modules {
     REGISTERMOD = 0,
     RESETMOD = 1,
     LOGINMOD = 2,
+    USERMOD = 3,
 };
 
 enum TipErr {

@@ -1,4 +1,5 @@
 #include "applyfrienditem.h"
+#include "avatarcache.h"
 #include "ui_applyfrienditem.h"
 
 ApplyFriendItem::ApplyFriendItem(QWidget *parent)
@@ -11,6 +12,32 @@ ApplyFriendItem::ApplyFriendItem(QWidget *parent)
     connect(ui->addBtn, &ClickedBtn::clicked, [this](){
         emit this->sig_auth_friend(_apply_info);
     });
+
+    connect(AvatarCache::getInstance().get(),
+            &AvatarCache::avatarReady,
+            this,
+            [this](int uid, const QString&) {
+                if (!_apply_info || uid != _apply_info->_uid) {
+                    return;
+                }
+                QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+                    _apply_info->_uid, _apply_info->_icon);
+                ui->icon_lb->setPixmap(pixmap.scaled(
+                    ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            });
+
+    connect(AvatarCache::getInstance().get(),
+            &AvatarCache::avatarUpdated,
+            this,
+            [this](int uid, const QString&) {
+                if (!_apply_info || uid != _apply_info->_uid) {
+                    return;
+                }
+                QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+                    _apply_info->_uid, _apply_info->_icon);
+                ui->icon_lb->setPixmap(pixmap.scaled(
+                    ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            });
 }
 
 ApplyFriendItem::~ApplyFriendItem()
@@ -22,7 +49,8 @@ void ApplyFriendItem::SetInfo(std::shared_ptr<ApplyInfo> apply_info)
 {
     _apply_info = apply_info;
     // 加载图片
-    QPixmap pixmap(_apply_info->_icon);
+    QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
+        _apply_info->_uid, _apply_info->_icon);
     // 设置图片自动缩放
     ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
     ui->icon_lb->setScaledContents(true);
@@ -53,4 +81,3 @@ int ApplyFriendItem::GetUid()
 {
     return _apply_info->_uid;
 }
-
