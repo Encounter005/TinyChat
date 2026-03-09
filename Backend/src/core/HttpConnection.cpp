@@ -1,6 +1,6 @@
 #include "HttpConnection.h"
-#include "infra/LogManager.h"
 #include "LogicSystem.h"
+#include "infra/LogManager.h"
 #include <boost/beast/http/dynamic_body_fwd.hpp>
 
 HttpConnection::HttpConnection(tcp::socket socket)
@@ -12,22 +12,39 @@ tcp::socket& HttpConnection::GetSocket() {
 
 void HttpConnection::Start() {
     auto self = shared_from_this();
+    // set body_limit
+    auto parser = std::make_shared<http::request_parser<http::dynamic_body>>();
+    parser->body_limit(16 * 1024 * 1024);
+
     http::async_read(
         _socket,
         _buffer,
-        _request,
-        [self](beast::error_code ec, std::size_t bytes_transfered) {
+        *parser,
+        [self, parser](beast::error_code ec, std::size_t bytes_transfered) {
             try {
+                boost::ignore_unused(bytes_transfered);
+
                 if (ec) {
+                    if (ec == http::error::body_limit) {
+                        self->GetResponse().result(
+                            http::status::payload_too_large);
+                        self->GetResponse().set(
+                            http::field::content_type, "text/plain");
+                        beast::ostream(self->GetResponse().body())
+                            << "payload too large\n";
+                        self->WriteResponse();
+                        return;
+                    }
                     LOG_ERROR("http error is: {}", ec.what());
                     return;
                 }
-                boost::ignore_unused(bytes_transfered);
+
+                self->_request = parser->release();
                 self->HandleReq();
                 self->CheckDeadline();
-
             } catch (std::exception& e) {
-                LOG_ERROR("In HttpConnection::Start() exception is: {}", e.what());
+                LOG_ERROR(
+                    "In HttpConnection::Start() exception is: {}", e.what());
             }
         });
 }
