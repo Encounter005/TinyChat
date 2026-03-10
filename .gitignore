@@ -5,3 +5,5 @@ Backend/uploads
 Backend/logs/server.log
 Backend/res.log
 Backend/brief.md
+.worktrees/
+.worktrees/
