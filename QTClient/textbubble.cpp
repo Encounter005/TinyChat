@@ -7,6 +7,9 @@
 #include <QTextDocument>
 #include <QTextBlock>
 #include <QTextLayout>
+#include <QTextOption>
+#include <QStyle>
+#include <QtMath>
 #include <QFont>
 
 TextBubble::TextBubble(ChatRole role, const QString &text, QWidget *parent)
@@ -16,19 +19,28 @@ TextBubble::TextBubble(ChatRole role, const QString &text, QWidget *parent)
     m_pTextEdit->setReadOnly(true);
     m_pTextEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_pTextEdit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_pTextEdit->setFrameShape(QFrame::NoFrame);
+    m_pTextEdit->setContentsMargins(0, 0, 0, 0);
+    m_pTextEdit->setLineWrapMode(QTextEdit::WidgetWidth);
+    m_pTextEdit->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    m_pTextEdit->document()->setDocumentMargin(2);
     m_pTextEdit->installEventFilter(this);
     QFont font("Maple Mono NF");
     font.setPointSize(12);
     m_pTextEdit->setFont(font);
     setPlainText(text);
     setWidget(m_pTextEdit);
-    initStyleSheet();
+    initStyleSheet(role);
 }
 
 bool TextBubble::eventFilter(QObject *o, QEvent *e)
 {
     if(m_pTextEdit == o && e->type() == QEvent::Paint)
     {
+        const int currentMax = currentMaxTextWidth();
+        if (currentMax != m_lastMaxTextWidth) {
+            relayoutForWidth(currentMax);
+        }
         adjustTextHeight(); //PaintEvent中设置
     }
     return BubbleFrame::eventFilter(o, e);
@@ -37,42 +49,74 @@ bool TextBubble::eventFilter(QObject *o, QEvent *e)
 void TextBubble::setPlainText(const QString &text)
 {
     m_pTextEdit->setPlainText(text);
-    //m_pTextEdit->setHtml(text);
-    //找到段落中最大宽度
-    qreal doc_margin = m_pTextEdit->document()->documentMargin();
-    int margin_left = this->layout()->contentsMargins().left();
-    int margin_right = this->layout()->contentsMargins().right();
-    QFontMetricsF fm(m_pTextEdit->font());
-    QTextDocument *doc = m_pTextEdit->document();
-    int max_width = 0;
-    //遍历每一段找到 最宽的那一段
-    for (QTextBlock it = doc->begin(); it != doc->end(); it = it.next())    //字体总长
-    {
-        int txtW = int(fm.width(it.text()));
-        max_width = max_width < txtW ? txtW : max_width;                 //找到最长的那段
+    relayoutForWidth(currentMaxTextWidth());
+}
+
+int TextBubble::currentMaxTextWidth() const {
+    constexpr int kFallbackMax = 300;
+    constexpr int kMinMax = 180;
+    constexpr int kHardMax = 420;
+
+    const QWidget* p = parentWidget();
+    if (!p) {
+        return kFallbackMax;
     }
-    //设置这个气泡的最大宽度 只需要设置一次
-    setMaximumWidth(max_width + 2 + doc_margin * 2 + (margin_left + margin_right));        //设置最大宽度
+
+    int available = p->width();
+    if (available <= 0) {
+        return kFallbackMax;
+    }
+
+    // 给头像、边距和气泡三角预留空间，避免撑满整行
+    available -= 150;
+    int dynamicMax = static_cast<int>(available * 0.62);
+    dynamicMax = qBound(kMinMax, dynamicMax, kHardMax);
+    return dynamicMax;
+}
+
+void TextBubble::relayoutForWidth(int maxTextWidth) {
+    QTextDocument *doc = m_pTextEdit->document();
+    doc->setTextWidth(maxTextWidth);
+    doc->adjustSize();
+
+    const qreal docMargin = doc->documentMargin();
+    int contentWidth = qCeil(doc->idealWidth());
+    contentWidth = qMin(contentWidth, maxTextWidth);
+    contentWidth = qMax(contentWidth, 24);
+
+    const int editWidth = contentWidth + qCeil(docMargin * 2.0) + 2;
+    m_pTextEdit->setFixedWidth(editWidth);
+
+    const int marginLeft = this->layout()->contentsMargins().left();
+    const int marginRight = this->layout()->contentsMargins().right();
+    setMaximumWidth(editWidth + marginLeft + marginRight);
+
+    m_lastMaxTextWidth = maxTextWidth;
+    adjustTextHeight();
 }
 
 void TextBubble::adjustTextHeight()
 {
-    qreal doc_margin = m_pTextEdit->document()->documentMargin();    //字体到边框的距离默认为4
+    const qreal docMargin = m_pTextEdit->document()->documentMargin();
     QTextDocument *doc = m_pTextEdit->document();
-    qreal text_height = 0;
-    //把每一段的高度相加=文本高
-    for (QTextBlock it = doc->begin(); it != doc->end(); it = it.next())
-    {
-        QTextLayout *pLayout = it.layout();
-        QRectF text_rect = pLayout->boundingRect();                             //这段的rect
-        text_height += text_rect.height();
-    }
-    int vMargin = this->layout()->contentsMargins().top();
-    //设置这个气泡需要的高度 文本高+文本边距+TextEdit边框到气泡边框的距离
-    setFixedHeight(text_height + doc_margin *2 + vMargin*2 );
+    doc->adjustSize();
+
+    const int textHeight = qCeil(doc->size().height());
+    const int editHeight = textHeight + qCeil(docMargin * 2.0) + 2;
+    m_pTextEdit->setFixedHeight(editHeight);
+
+    const QMargins margins = this->layout()->contentsMargins();
+    setFixedHeight(editHeight + margins.top() + margins.bottom());
 }
 
-void TextBubble::initStyleSheet()
+void TextBubble::initStyleSheet(ChatRole role)
 {
-    m_pTextEdit->setStyleSheet("QTextEdit{background:transparent;border:none;color: black}");
+    m_pTextEdit->setObjectName("chat_bubble_text");
+    if (role == ChatRole::SELF) {
+        m_pTextEdit->setProperty("bubble_role", "self");
+    } else {
+        m_pTextEdit->setProperty("bubble_role", "other");
+    }
+    m_pTextEdit->style()->unpolish(m_pTextEdit);
+    m_pTextEdit->style()->polish(m_pTextEdit);
 }

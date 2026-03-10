@@ -33,9 +33,14 @@ void MessageSyncCoordinator::ApplyHistory(int ownerUid, const std::vector<std::s
         _repo.reset(new MessageCacheRepository(_db));
     }
 
-    qint64 now = QDateTime::currentMSecsSinceEpoch();
     for(const auto& msg : msgs) {
-        _repo->SaveOne(ownerUid, *msg, now++);
+        if (!msg) {
+            continue;
+        }
+        qint64 ts = msg->_timestamp > 0
+                        ? msg->_timestamp
+                        : QDateTime::currentSecsSinceEpoch();
+        _repo->SaveOne(ownerUid, *msg, ts);
     }
 
     UserManager::getInstance()->AppendMessagesForOwner(ownerUid, msgs);

@@ -409,8 +409,23 @@ void LogicHandler::HandleChatTextMsg(
     auto              uid    = src["fromuid"].asInt();
     auto              touid  = src["touid"].asInt();
     const Json::Value arrays = src["text_array"];
+    const auto        now_ts = static_cast<int64_t>(std::time(nullptr));
+
+    Json::Value normalized_arrays(Json::arrayValue);
+    if (arrays.isArray()) {
+        for (const auto& one : arrays) {
+            Json::Value normalized = one;
+            if (!normalized.isMember("timestamp")
+                || !normalized["timestamp"].isInt64()) {
+                normalized["timestamp"] = now_ts;
+            }
+            normalized_arrays.append(normalized);
+        }
+    }
+
     root["error"]            = static_cast<int>(ErrorCodes::SUCCESS);
-    root["text_array"]       = arrays;
+    root["timestamp"]        = now_ts;
+    root["text_array"]       = normalized_arrays;
     root["fromuid"]          = uid;
     root["touid"]            = touid;
 
@@ -463,7 +478,7 @@ void LogicHandler::HandleChatTextMsg(
     TextChatMsgReq text_msg_req;
     text_msg_req.set_fromuid(uid);
     text_msg_req.set_touid(touid);
-    for (const auto &text_obj : arrays) {
+    for (const auto &text_obj : normalized_arrays) {
         auto content = text_obj["content"].asString();
         auto msgid   = text_obj["msgid"].asString();
         LOG_INFO("msgid is: {}, content is {}", content, msgid);

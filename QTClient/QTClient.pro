@@ -28,8 +28,10 @@ SOURCES += \
     contactuseritem.cpp \
     contactuserlist.cpp \
     customedit.cpp \
+    datapaths.cpp \
     file.grpc.pb.cc \
     file.pb.cc \
+    filebubble.cpp \
     fileuploadwindow.cpp \
     findfaildlg.cpp \
     findsuccessdialog.cpp \
@@ -80,8 +82,10 @@ HEADERS += \
     contactuseritem.h \
     contactuserlist.h \
     customedit.h \
+    datapaths.h \
     file.grpc.pb.h \
     file.pb.h \
+    filebubble.h \
     fileuploadwindow.h \
     findfaildlg.h \
     findsuccessdialog.h \

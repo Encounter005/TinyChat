@@ -6,6 +6,7 @@
 #include "message.pb.h"
 #include "repository/UserRepository.h"
 #include "service/UserService.h"
+#include <ctime>
 #include <json/value.h>
 
 
@@ -87,6 +88,7 @@ Status ChatServiceImpl::NotifyTextChatmsg(
     root["error"]   = ErrorCode::SUCCESS;
     root["fromuid"] = request->fromuid();
     root["touid"]   = request->touid();
+    root["timestamp"] = static_cast<int64_t>(std::time(nullptr));
 
     Json::Value text_array;
     for (auto& msg : request->textmsgs()) {
@@ -117,5 +119,32 @@ Status ChatServiceImpl::NotifyKickUser(
     UserManager::getInstance()->KickUser(
         uid, "Your account has been logged in from another device");
     LOG_INFO("[ChatServiceImpl] User {} kicked successfully", uid);
+    return Status::OK;
+}
+
+
+Status ChatServiceImpl::NotifyUserIcon(
+    ServerContext*,
+    const message::UserIconReq* request,
+    message::UserIconRsp* response) {
+
+    const int ownerUid = request->owner_uid();
+    const int changedUid = request->uid();
+
+    response->set_owner_uid(ownerUid);
+    response->set_uid(changedUid);
+    response->set_error(message::ErrorCode::SUCCESS);
+
+    auto session = UserManager::getInstance()->GetSession(ownerUid);
+    if (!session) {
+        // owner 不在线：通知不做离线存储（离线靠下次登录 friend_list 获取新 icon）
+        return Status::OK;
+    }
+
+    Json::Value root;
+    root["uid"] = changedUid;
+    root["icon"] = request->icon();
+
+    session->Send(MsgId::ID_NOTIFY_USER_ICON_REQ, root.toStyledString());
     return Status::OK;
 }

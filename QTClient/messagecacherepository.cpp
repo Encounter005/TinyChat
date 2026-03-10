@@ -1,6 +1,19 @@
 #include "messagecacherepository.h"
 #include "qsqlquery.h"
 
+namespace {
+qint64 NormalizeUnixTs(qint64 ts)
+{
+    if (ts <= 0) {
+        return 0;
+    }
+    if (ts >= 1000000000000LL) {
+        return ts / 1000;
+    }
+    return ts;
+}
+}
+
 
 MessageCacheRepository::MessageCacheRepository(MessageCacheDb &db) : _db(db)
 {
@@ -11,7 +24,7 @@ std::vector<std::shared_ptr<TextChatData> > MessageCacheRepository::LoadByOwner(
 {
     std::vector<std::shared_ptr<TextChatData>> result;
     QSqlQuery query(_db.Connection());
-    query.prepare("SELECT msg_id, content, from_uid, to_uid FROM chat_message_cache "
+    query.prepare("SELECT msg_id, content, from_uid, to_uid, msg_ts FROM chat_message_cache "
                   "WHERE owner_uid = ? ORDER BY msg_ts ASC");
     query.addBindValue(ownerUid);
     if(!query.exec()) {
@@ -23,7 +36,9 @@ std::vector<std::shared_ptr<TextChatData> > MessageCacheRepository::LoadByOwner(
         const QString content = query.value(1).toString();
         const int fromUid = query.value(2).toInt();
         const int toUid = query.value(3).toInt();
-        result.push_back(std::make_shared<TextChatData>(msgId, content, fromUid, toUid));
+        const qint64 ts = NormalizeUnixTs(query.value(4).toLongLong());
+        result.push_back(
+            std::make_shared<TextChatData>(msgId, content, fromUid, toUid, ts));
     }
     return result;
 
@@ -42,7 +57,7 @@ bool MessageCacheRepository::SaveOne(int ownerUid, const TextChatData &msg, qint
     query.addBindValue(msg._from_uid);
     query.addBindValue(msg._to_uid);
     query.addBindValue(msg._msg_content);
-    query.addBindValue(ts);
+    query.addBindValue(NormalizeUnixTs(ts));
     query.addBindValue(0);
     return query.exec();
 

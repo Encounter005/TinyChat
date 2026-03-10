@@ -10,6 +10,7 @@
 #include <cppconn/prepared_statement.h>
 #include <cppconn/resultset.h>
 #include <json/reader.h>
+#include <json/writer.h>
 #include <json/value.h>
 #include <map>
 #include <memory>
@@ -125,8 +126,10 @@ public:
             for (int table_id = 0; table_id < 16; ++table_id) {
                 std::string table_name
                     = "chat_messages_" + std::to_string(table_id);
-                std::string sql = "SELECT content FROM " + table_name 
-                                  + " WHERE from_uid = ? OR to_uid = ?";
+                std::string sql
+                    = "SELECT content, IFNULL(UNIX_TIMESTAMP(created_at), 0) "
+                      "AS created_at_ts FROM "
+                      + table_name + " WHERE from_uid = ? OR to_uid = ?";
 
                 try {
                     std::unique_ptr<sql::PreparedStatement> stmt(
@@ -137,6 +140,8 @@ public:
                     std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
                     while (res->next()) {
                         std::string content = res->getString("content");
+                        std::time_t db_created_at
+                            = static_cast<std::time_t>(res->getInt64("created_at_ts"));
 
                         Json::Value  root;
                         Json::Reader reader;
@@ -149,8 +154,26 @@ public:
                         int to_uid     = root["touid"].asInt();
                         int friend_uid = (from_uid == uid) ? to_uid : from_uid;
 
-                        std::time_t msg_time = now;
-                        if (root["text_array"].isArray()
+                        std::time_t msg_time = 0;
+                        if (root.isMember("timestamp")
+                            && root["timestamp"].isInt64()) {
+                            msg_time
+                                = static_cast<std::time_t>(root["timestamp"].asInt64());
+                        }
+
+                        if (msg_time <= 0
+                            && root["text_array"].isArray()
+                            && root["text_array"].size() > 0) {
+                            const auto& first = root["text_array"][0];
+                            if (first.isMember("timestamp")
+                                && first["timestamp"].isInt64()) {
+                                msg_time = static_cast<std::time_t>(
+                                    first["timestamp"].asInt64());
+                            }
+                        }
+
+                        if (msg_time <= 0
+                            && root["text_array"].isArray()
                             && root["text_array"].size() > 0) {
                             std::string msgid
                                 = root["text_array"][0]["msgid"].asString();
@@ -158,16 +181,30 @@ public:
                                 size_t second_underscore = msgid.find('_', 4);
                                 if (second_underscore != std::string::npos) {
                                     std::string timestamp_str
-                                        = msgid.substr(4, second_underscore);
+                                        = msgid.substr(4, second_underscore - 4);
                                     try {
                                         msg_time = static_cast<std::time_t>(
                                             std::stoll(timestamp_str));
                                     } catch (...) {
-                                        msg_time = now;
+                                        msg_time = 0;
                                     }
                                 }
                             }
                         }
+                        if (msg_time <= 0 && db_created_at > 0) {
+                            msg_time = db_created_at;
+                        }
+                        if (msg_time <= 0) {
+                            msg_time = now;
+                        }
+
+                        if (!root.isMember("timestamp") && msg_time > 0) {
+                            root["timestamp"]
+                                = static_cast<Json::Int64>(msg_time);
+                            Json::FastWriter writer;
+                            content = writer.write(root);
+                        }
+
                         if (msg_time >= start_time && msg_time <= now) {
                             timed_messages_map[friend_uid].push_back(
                                 {content, msg_time});

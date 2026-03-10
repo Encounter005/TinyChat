@@ -3,6 +3,7 @@
 #include "qjsonarray.h"
 #include "qjsonobject.h"
 #include <QString>
+#include <QtGlobal>
 #include <memory>
 #include <iostream>
 #include <vector>
@@ -10,14 +11,24 @@ struct TextChatData;
 struct FriendInfo;
 
 struct TextChatData{
-    TextChatData(QString msg_id, QString msg_content, int fromuid, int touid)
-        :_msg_id(msg_id),_msg_content(msg_content),_from_uid(fromuid),_to_uid(touid){
+    TextChatData(
+        QString msg_id,
+        QString msg_content,
+        int fromuid,
+        int touid,
+        qint64 timestamp = 0)
+        :_msg_id(msg_id)
+        ,_msg_content(msg_content)
+        ,_from_uid(fromuid)
+        ,_to_uid(touid)
+        ,_timestamp(timestamp){
 
     }
     QString _msg_id;
     QString _msg_content;
     int _from_uid;
     int _to_uid;
+    qint64 _timestamp;
 };
 
 class SearchInfo {
@@ -179,13 +190,32 @@ struct UserInfo {
 };
 
 struct TextChatMsg{
-    TextChatMsg(int fromuid, int touid, QJsonArray arrays):
+    TextChatMsg(int fromuid, int touid, QJsonArray arrays, qint64 fallback_ts = 0):
         _to_uid(touid),_from_uid(fromuid){
         for(auto  msg_data : arrays){
             auto msg_obj = msg_data.toObject();
             auto content = msg_obj["content"].toString();
             auto msgid = msg_obj["msgid"].toString();
-            auto msg_ptr = std::make_shared<TextChatData>(msgid, content,fromuid, touid);
+            qint64 msg_ts = msg_obj["timestamp"].toVariant().toLongLong();
+            if(msg_ts <= 0) {
+                msg_ts = fallback_ts;
+            }
+            if(msg_ts <= 0 && msgid.startsWith("msg_")) {
+                const int second = msgid.indexOf('_', 4);
+                if(second > 4) {
+                    bool ok = false;
+                    msg_ts = msgid.mid(4, second - 4).toLongLong(&ok);
+                    if(!ok) {
+                        msg_ts = 0;
+                    }
+                }
+            }
+            auto msg_ptr = std::make_shared<TextChatData>(
+                msgid,
+                content,
+                fromuid,
+                touid,
+                msg_ts);
             _chat_msgs.push_back(msg_ptr);
         }
     }
