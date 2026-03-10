@@ -2,6 +2,7 @@
 #include "qpainter.h"
 #include "qstyleoption.h"
 #include <QVBoxLayout>
+#include <QStyle>
 
 
 StateWidget::StateWidget(QWidget *parent) : QLabel(parent), _curstate(ClickLbState::Normal)
@@ -59,6 +60,7 @@ void StateWidget::AddRedPoint()
     _red_point->setObjectName("red_point");
     QVBoxLayout* layout2 = new QVBoxLayout;
     _red_point->setAlignment(Qt::AlignCenter);
+    _red_point->setProperty("unread", false);
     layout2->addWidget(_red_point);
     layout2->setMargin(0);
     this->setLayout(layout2);
@@ -66,16 +68,20 @@ void StateWidget::AddRedPoint()
 }
 void StateWidget::ShowRedPoint(bool show)
 {
-    _red_point->setVisible(true);
+    _red_point->setProperty("unread", show);
+    _red_point->style()->unpolish(_red_point);
+    _red_point->style()->polish(_red_point);
+    _red_point->setVisible(show);
 }
 
-void StateWidget::painEvent(QPaintEvent *event)
+void StateWidget::paintEvent(QPaintEvent *event)
 {
+    Q_UNUSED(event);
     QStyleOption opt;
     opt.init(this);
     QPainter p(this);
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
-    return;
+    QLabel::paintEvent(event);
 }
 void StateWidget::mousePressEvent(QMouseEvent *event)
 {

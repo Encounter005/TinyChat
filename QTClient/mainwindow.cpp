@@ -10,6 +10,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     _loginDialog = new Login(this);
     setCentralWidget(_loginDialog);
+    setAuthWindowSize();
     //取消边框
     _loginDialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
     // _loginDialog->show();
@@ -30,6 +31,7 @@ void MainWindow::SlotSwitchReg() {
     connect(_registerDialog, &Register::sigSwitchLogin, this, &MainWindow::SlotSwitchLogin);
     _loginDialog->hide();
     _registerDialog->show();
+    setAuthWindowSize();
     _ui_status = REGISTER_UI;
 
 }
@@ -44,6 +46,7 @@ void MainWindow::SlotSwitchLogin()
     setCentralWidget(_loginDialog);
     _registerDialog->hide();
     _loginDialog->show();
+    setAuthWindowSize();
     //连接登录界面注册信号
     connect(_loginDialog, &Login::switchToRegister, this, &MainWindow::SlotSwitchReg);
     //连接登录界面忘记密码信号
@@ -59,6 +62,7 @@ void MainWindow::SlotSwitchLogin2()
     setCentralWidget(_loginDialog);
     _reset_dig->hide();
     _loginDialog->show();
+    setAuthWindowSize();
     //连接登录界面忘记密码信号
     connect(_loginDialog, &Login::switchReset, this, &MainWindow::SlotSwitchReset);
     //连接登录界面注册信号
@@ -76,6 +80,7 @@ void MainWindow::SlotSwitchReset()
     connect(_reset_dig, &ResetDialog::sigSwitchLogin, this, &MainWindow::SlotSwitchLogin2);
     _loginDialog->hide();
     _reset_dig->show();
+    setAuthWindowSize();
     _ui_status = RESET_UI;
 }
 
@@ -88,6 +93,7 @@ void MainWindow::SlotSwitchChat()
     _loginDialog->hide();
     this->setMinimumSize(QSize(1050, 900));
     this->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    this->resize(1086, 723);
     _ui_status = CHAT_UI;
 }
 
@@ -136,9 +142,7 @@ void MainWindow::offlineLogin()
     setCentralWidget(_loginDialog);
 
     _chat_dlg->hide();
-    this->setMaximumSize(300,500);
-    this->setMinimumSize(300,500);
-    this->resize(300,500);
+    setAuthWindowSize();
     _loginDialog->show();
     //连接登录界面注册信号
     connect(_loginDialog, &Login::switchToRegister, this, &MainWindow::SlotSwitchReg);
@@ -146,4 +150,11 @@ void MainWindow::offlineLogin()
     connect(_loginDialog, &Login::switchReset, this, &MainWindow::SlotSwitchReset);
     _ui_status = LOGIN_UI;
 
+}
+
+void MainWindow::setAuthWindowSize()
+{
+    this->setMinimumSize(1000, 800);
+    this->setMaximumSize(1000, 800);
+    this->resize(1000, 800);
 }

@@ -83,23 +83,23 @@
      <widget class="QLabel" name="redpoint">
       <property name="geometry">
        <rect>
-        <x>27</x>
-        <y>2</y>
-        <width>30</width>
-        <height>30</height>
-       </rect>
+         <x>34</x>
+         <y>6</y>
+         <width>10</width>
+         <height>10</height>
+        </rect>
       </property>
       <property name="minimumSize">
        <size>
-        <width>30</width>
-        <height>30</height>
-       </size>
+         <width>10</width>
+         <height>10</height>
+        </size>
       </property>
       <property name="maximumSize">
        <size>
-        <width>30</width>
-        <height>30</height>
-       </size>
+         <width>10</width>
+         <height>10</height>
+        </size>
       </property>
       <property name="text">
        <string/>

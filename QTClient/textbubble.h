@@ -12,7 +12,10 @@ protected:
 private:
     void adjustTextHeight();
     void setPlainText(const QString &text);
-    void initStyleSheet();
+    void initStyleSheet(ChatRole role);
+    int currentMaxTextWidth() const;
+    void relayoutForWidth(int maxTextWidth);
 private:
     QTextEdit *m_pTextEdit;
+    int m_lastMaxTextWidth = -1;
 };

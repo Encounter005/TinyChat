@@ -60,6 +60,7 @@ signals:
     void sig_add_auth_friend(std::shared_ptr<AuthInfo>);
     void sig_text_chat_msg(std::shared_ptr<TextChatMsg> msg);
     void sig_connection_lost();
+    void sig_friend_icon_updated(int uid, QString iconName);
 
 };
 

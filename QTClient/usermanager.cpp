@@ -246,3 +246,17 @@ void UserManager::slot_add_friend_auth(std::shared_ptr<AuthInfo> auth)
 {
 
 }
+void UserManager::UpdateFriendIcon(int uid, const QString& icon) {
+    auto it = _friend_map.find(uid);
+    if (it == _friend_map.end()) return;
+
+    it.value()->_icon = icon;
+
+    // 同步 friend_list（可选，但建议做，避免分页列表用到旧对象）
+    for (auto& f : _friend_list) {
+        if (f && f->_uid == uid) {
+            f->_icon = icon;
+            break;
+        }
+    }
+}

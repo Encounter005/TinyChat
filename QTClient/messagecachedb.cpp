@@ -1,26 +1,38 @@
 #include "messagecachedb.h"
+#include "datapaths.h"
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QSqlQuery>
 
 namespace {
-QString ResolveQtClientDirPath() {
-    QDir current(QCoreApplication::applicationDirPath());
-    while (true) {
-        if (current.exists("QTClient.pro")) {
-            return current.absolutePath();
-        }
-
-        if (current.exists("QTClient/QTClient.pro")) {
-            return current.absoluteFilePath("QTClient");
-        }
-
-        if (!current.cdUp()) {
-            break;
-        }
+void MoveIfNeeded(const QString& src, const QString& dst) {
+    if (src == dst) {
+        return;
     }
 
-    return QCoreApplication::applicationDirPath();
+    QFileInfo srcInfo(src);
+    if (!srcInfo.exists()) {
+        return;
+    }
+
+    QFileInfo dstInfo(dst);
+    if (dstInfo.exists()) {
+        return;
+    }
+
+    QDir().mkpath(QFileInfo(dst).absolutePath());
+    QFile::rename(src, dst);
+}
+
+void MigrateLegacyChatCache() {
+    const QString legacyDb = DataPaths::QtClientRootDir() + QDir::separator() + "chat_cache.db";
+    const QString targetDb = DataPaths::ChatCacheDbPath();
+
+    MoveIfNeeded(legacyDb, targetDb);
+    MoveIfNeeded(legacyDb + "-wal", targetDb + "-wal");
+    MoveIfNeeded(legacyDb + "-shm", targetDb + "-shm");
 }
 }
 
@@ -29,10 +41,8 @@ MessageCacheDb::MessageCacheDb() {}
 bool MessageCacheDb::OpenForOwner(int owneruid)
 {
     Q_UNUSED(owneruid);
-    const QString dir = ResolveQtClientDirPath();
-    QDir().mkpath(dir);
-
-    const QString dbPath = dir + QDir::separator() + "chat_cache.db";
+    MigrateLegacyChatCache();
+    const QString dbPath = DataPaths::ChatCacheDbPath();
     _db = QSqlDatabase::addDatabase("QSQLITE", "chat_cache");
     _db.setDatabaseName(dbPath);
     if(!_db.open()) {

@@ -1,4 +1,5 @@
 #include "avatarcache.h"
+#include "datapaths.h"
 #include "file.grpc.pb.h"
 #include "file.pb.h"
 #include "qcoreapplication.h"
@@ -10,7 +11,6 @@
 #include "qpixmap.h"
 #include "qregion.h"
 #include "qsettings.h"
-#include "qstandardpaths.h"
 #include "qthread.h"
 #include <grpc++/grpc++.h>
 #include <grpcpp/channel.h>
@@ -19,11 +19,7 @@
 #include <grpcpp/security/credentials.h>
 
 QString AvatarCache::Cachepath(int uid, const QString& iconName) {
-    QString base
-        = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir dir(base);
-    dir.mkpath(QString("avatars/%1").arg(uid));
-    return dir.filePath(QString("avatars/%1/%2").arg(uid).arg(iconName));
+    return DataPaths::AvatarPath(uid, iconName);
 }
 
 QPixmap AvatarCache::PixmapOrPlaceholder(int uid, const QString& iconName) {

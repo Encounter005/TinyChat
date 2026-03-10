@@ -30,6 +30,7 @@ public:
     ~MainWindow();
 private:
     void offlineLogin();
+    void setAuthWindowSize();
 
 private:
     Ui::MainWindow *ui;

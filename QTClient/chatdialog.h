@@ -49,6 +49,8 @@ public slots:
 private:
     bool eventFilter(QObject* watched, QEvent* event);
     void handleGlobalMousePress(QMouseEvent* event);
+    void switchStackedPageAnimated(QWidget* page);
+    void animateListItemIntro(QWidget* itemWidget);
     void loadMoreConUser();
     void loadMoreChatUser();
     void SetSelectChatPage(int uid );

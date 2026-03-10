@@ -6,53 +6,172 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>300</width>
-    <height>500</height>
+    <width>1000</width>
+    <height>800</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>300</width>
-    <height>500</height>
+    <width>1000</width>
+    <height>800</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>300</width>
-    <height>500</height>
+    <width>1000</width>
+    <height>800</height>
    </size>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>TinyChat - Register</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_12">
+  <layout class="QHBoxLayout" name="horizontalLayout_root">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
    <item>
-    <widget class="QWidget" name="widget" native="true">
-     <layout class="QHBoxLayout" name="horizontalLayout_21">
+    <widget class="QWidget" name="auth_left_panel" native="true">
+     <layout class="QVBoxLayout" name="verticalLayout_left">
+      <property name="leftMargin">
+       <number>56</number>
+      </property>
+      <property name="topMargin">
+       <number>72</number>
+      </property>
+      <property name="rightMargin">
+       <number>56</number>
+      </property>
+      <property name="bottomMargin">
+       <number>40</number>
+      </property>
+      <item>
+       <spacer name="verticalSpacer_left_top">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="auth_left_image">
+        <property name="minimumSize">
+         <size>
+          <width>280</width>
+          <height>280</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>280</width>
+          <height>280</height>
+         </size>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="pixmap">
+         <pixmap resource="resources.qrc">:/img/a.jpg</pixmap>
+        </property>
+        <property name="scaledContents">
+         <bool>true</bool>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="brand_title">
+        <property name="text">
+         <string>TinyChat</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="brand_subtitle">
+        <property name="text">
+         <string>Create your account
+to start chatting.</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacer_left_bottom">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="brand_version">
+        <property name="text">
+         <string>Version 0.1.0</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="auth_right_panel" native="true">
+     <layout class="QVBoxLayout" name="verticalLayout_right">
+      <property name="leftMargin">
+       <number>72</number>
+      </property>
+      <property name="topMargin">
+       <number>64</number>
+      </property>
+      <property name="rightMargin">
+       <number>72</number>
+      </property>
+      <property name="bottomMargin">
+       <number>64</number>
+      </property>
       <item>
        <widget class="QStackedWidget" name="stackedWidget">
         <property name="currentIndex">
          <number>0</number>
         </property>
         <widget class="QWidget" name="page_1">
-         <layout class="QVBoxLayout" name="verticalLayout_6">
+         <layout class="QVBoxLayout" name="verticalLayout_form">
           <item>
-           <spacer name="verticalSpacer">
-            <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
+           <widget class="QLabel" name="title_label">
+            <property name="text">
+             <string>Create Account</string>
             </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>61</height>
-             </size>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="desc_label">
+            <property name="text">
+             <string>Fill in your information to continue</string>
             </property>
-           </spacer>
+           </widget>
           </item>
           <item>
            <widget class="QLabel" name="error_tips">
             <property name="text">
-             <string>错误提示</string>
+             <string/>
             </property>
             <property name="alignment">
              <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -60,182 +179,202 @@
            </widget>
           </item>
           <item>
-           <layout class="QVBoxLayout" name="verticalLayout_5">
+           <layout class="QHBoxLayout" name="horizontalLayout_user">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_15">
-              <item>
-               <widget class="QLabel" name="uesr_label">
-                <property name="text">
-                 <string>用户：</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLineEdit" name="user_edit"/>
-              </item>
-             </layout>
+             <widget class="QLabel" name="uesr_label">
+              <property name="text">
+               <string>User</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLineEdit" name="user_edit">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>44</height>
+               </size>
+              </property>
+             </widget>
             </item>
            </layout>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_16">
+           <layout class="QHBoxLayout" name="horizontalLayout_email">
             <item>
              <widget class="QLabel" name="email_label">
               <property name="text">
-               <string>邮箱：</string>
+               <string>Email</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QLineEdit" name="email_edit"/>
+             <widget class="QLineEdit" name="email_edit">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>44</height>
+               </size>
+              </property>
+             </widget>
             </item>
            </layout>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_13">
+           <layout class="QHBoxLayout" name="horizontalLayout_pass">
             <item>
              <widget class="QLabel" name="pass_label">
               <property name="text">
-               <string>密码：</string>
+               <string>Password</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QLineEdit" name="pass_edit"/>
+             <widget class="QLineEdit" name="pass_edit">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>44</height>
+               </size>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="ClickedLabel" name="pass_visible">
               <property name="minimumSize">
                <size>
-                <width>26</width>
-                <height>20</height>
+                <width>36</width>
+                <height>36</height>
                </size>
               </property>
               <property name="maximumSize">
                <size>
-                <width>20</width>
-                <height>20</height>
+                <width>36</width>
+                <height>36</height>
                </size>
               </property>
               <property name="text">
                <string/>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignmentFlag::AlignCenter</set>
               </property>
              </widget>
             </item>
            </layout>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_14">
+           <layout class="QHBoxLayout" name="horizontalLayout_confirm">
             <item>
              <widget class="QLabel" name="confirm_label">
               <property name="text">
-               <string>确认：</string>
+               <string>Confirm</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QLineEdit" name="confirm_edit"/>
+             <widget class="QLineEdit" name="confirm_edit">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>44</height>
+               </size>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="ClickedLabel" name="confirm_visible">
               <property name="minimumSize">
                <size>
-                <width>26</width>
-                <height>20</height>
+                <width>36</width>
+                <height>36</height>
                </size>
               </property>
               <property name="maximumSize">
                <size>
-                <width>20</width>
-                <height>20</height>
+                <width>36</width>
+                <height>36</height>
                </size>
               </property>
               <property name="text">
                <string/>
               </property>
-              <property name="alignment">
-               <set>Qt::AlignmentFlag::AlignCenter</set>
-              </property>
              </widget>
             </item>
            </layout>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_18">
+           <layout class="QHBoxLayout" name="horizontalLayout_code">
             <item>
              <widget class="QLabel" name="verify_label">
               <property name="text">
-               <string>验证码：</string>
+               <string>Code</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QLineEdit" name="verify_edit"/>
+             <widget class="QLineEdit" name="verify_edit">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>44</height>
+               </size>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="TimerBtn" name="get_code_button">
+              <property name="minimumSize">
+               <size>
+                <width>86</width>
+                <height>40</height>
+               </size>
+              </property>
               <property name="text">
-               <string>获取</string>
+               <string>Get</string>
               </property>
              </widget>
             </item>
            </layout>
           </item>
           <item>
-           <spacer name="verticalSpacer_2">
-            <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
+           <widget class="QPushButton" name="confirm_button">
+            <property name="minimumSize">
              <size>
-              <width>20</width>
-              <height>39</height>
+              <width>0</width>
+              <height>50</height>
              </size>
             </property>
-           </spacer>
-          </item>
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_17">
-            <item>
-             <widget class="QPushButton" name="confirm_button">
-              <property name="text">
-               <string>确定</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="cancel_button">
-              <property name="text">
-               <string>取消</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <spacer name="verticalSpacer_3">
-            <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
+            <property name="text">
+             <string>Sign Up</string>
             </property>
-            <property name="sizeHint" stdset="0">
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="cancel_button">
+            <property name="minimumSize">
              <size>
-              <width>20</width>
-              <height>40</height>
+              <width>0</width>
+              <height>44</height>
              </size>
             </property>
-           </spacer>
+            <property name="text">
+             <string>Back to Login</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
         <widget class="QWidget" name="page_2">
-         <layout class="QVBoxLayout" name="verticalLayout_3">
+         <layout class="QVBoxLayout" name="verticalLayout_success">
+          <item>
+           <spacer name="verticalSpacer_success_top">
+            <property name="orientation">
+             <enum>Qt::Orientation::Vertical</enum>
+            </property>
+           </spacer>
+          </item>
           <item>
            <widget class="QLabel" name="tip_lab2">
             <property name="text">
-             <string>注册成功，5s后返回登录</string>
+             <string>Register Success</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -245,7 +384,7 @@
           <item>
            <widget class="QLabel" name="tip_lab1">
             <property name="text">
-             <string>可以点击返回登录界面</string>
+             <string>Returning to login in 5s</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -253,67 +392,22 @@
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_4">
-            <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
+           <widget class="QPushButton" name="return_to_login_btn">
+            <property name="minimumSize">
              <size>
-              <width>20</width>
-              <height>40</height>
+              <width>0</width>
+              <height>50</height>
              </size>
             </property>
-           </spacer>
-          </item>
-          <item>
-           <widget class="QWidget" name="widget_2" native="true">
-            <layout class="QHBoxLayout" name="horizontalLayout_19">
-             <item>
-              <spacer name="horizontalSpacer">
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QPushButton" name="return_to_login_btn">
-               <property name="text">
-                <string>返回登录</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_2">
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
+            <property name="text">
+             <string>Return to Login</string>
+            </property>
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_5">
+           <spacer name="verticalSpacer_success_bottom">
             <property name="orientation">
              <enum>Qt::Orientation::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
             </property>
            </spacer>
           </item>
@@ -338,6 +432,8 @@
    <header>clickedlabel.h</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections/>
 </ui>

@@ -11,6 +11,7 @@
 #include <QThread>
 #include <QFileInfo>
 #include <QCryptographicHash>
+#include <QStyle>
 #include <vector>
 
 FileUploadWindow::FileUploadWindow(QWidget *parent)
@@ -71,6 +72,9 @@ void FileUploadWindow::on_upload_button_clicked()
     _is_uploading = true;
     ui->progressBar->show();
     ui->tip_label->clear();
+    ui->tip_label->setProperty("state", "normal");
+    ui->tip_label->style()->unpolish(ui->tip_label);
+    ui->tip_label->style()->polish(ui->tip_label);
 
     // 使用工作线程执行上传
     auto* t = QThread::create([this]() {
@@ -125,7 +129,9 @@ std::string FileUploadWindow::calculateFileMD5(const std::string &filename)
 void FileUploadWindow::showSuccess(const QString &message)
 {
     ui->tip_label->setText(message);
-    ui->tip_label->setStyleSheet("color: #6ed66f; font-size: 14px; font-family: \"Maple Mono NF\";");
+    ui->tip_label->setProperty("state", "ok");
+    ui->tip_label->style()->unpolish(ui->tip_label);
+    ui->tip_label->style()->polish(ui->tip_label);
     ui->progressBar->hide();
     _is_uploading = false;
 }
@@ -133,7 +139,9 @@ void FileUploadWindow::showSuccess(const QString &message)
 void FileUploadWindow::showError(const QString &message)
 {
     ui->tip_label->setText(message);
-    ui->tip_label->setStyleSheet("color: #e65046; font-size: 14px; font-family: \"Maple Mono NF\";");
+    ui->tip_label->setProperty("state", "error");
+    ui->tip_label->style()->unpolish(ui->tip_label);
+    ui->tip_label->style()->polish(ui->tip_label);
     ui->progressBar->hide();
     _is_uploading = false;
 }
@@ -264,4 +272,3 @@ void FileUploadWindow::postSuccess(const QString &msg)
         showSuccess(msg);
     }, Qt::QueuedConnection);
 }
-
