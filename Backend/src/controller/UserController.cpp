@@ -2,9 +2,12 @@
 #include "common/const.h"
 #include "core/HttpConnection.h"
 #include "core/HttpResponse.h"
+#include "dao/UserDAO.h"
+#include "grpcClient/ChatClient.h"
 #include "grpcClient/FileClient.h"
 #include "grpcClient/StatusClient.h"
 #include "infra/LogManager.h"
+#include "message.pb.h"
 #include "repository/UserRepository.h"
 #include "service/UserService.h"
 #include <boost/beast/core/buffers_to_string.hpp>
@@ -231,6 +234,25 @@ void UserController::UpdateUserIcon(
     if (!dbRes.IsOK()) {
         HttpResponse::Error(connection, dbRes.Error());
         return;
+    }
+
+    auto ownerRes = UserDAO::getInstance()->FindFriendOwnersByFriendId(uid);
+    if(ownerRes.IsOK()) {
+        for(auto ownerUid : ownerRes.Value()) {
+            auto srvRes = UserRepository::FindUserIpServerByUid(ownerUid);
+            if(!srvRes.IsOK()) {
+                continue;
+            }
+
+            const std::string serverName = srvRes.Value();
+
+            message::UserIconReq req;
+            req.set_uid(uid);
+            req.set_owner_uid(ownerUid);
+            req.set_icon(icon);
+
+            auto rsp = ChatClient::getInstance()->NotifyUserIcon(serverName, req);
+        }
     }
 
     Json::Value data;

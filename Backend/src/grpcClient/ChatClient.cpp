@@ -134,3 +134,23 @@ KickUserRsp ChatClient::NotifyKickUser(
     rsp.set_uid(req.uid());
     return rsp;
 }
+
+UserIconRsp ChatClient::NotifyUserIcon(
+    const std::string& server_name, const UserIconReq& req) {
+
+    UserIconRsp rsp;
+    grpc::ClientContext context;
+
+    StubFactory<message::ChatService> stubFactory(_pools.at(server_name));
+    auto stub = stubFactory.create();
+
+    grpc::Status status = stub->NotifyUserIcon(&context, req, &rsp);
+    if (!status.ok()) {
+        rsp.set_error(message::ErrorCode::RPC_FAILED);
+        rsp.set_uid(req.uid());
+        rsp.set_owner_uid(req.owner_uid());
+    } else {
+        rsp.set_error(message::ErrorCode::SUCCESS);
+    }
+    return rsp;
+}

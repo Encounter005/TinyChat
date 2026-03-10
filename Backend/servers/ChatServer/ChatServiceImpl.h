@@ -18,6 +18,8 @@ using message::SendChatMsgReq;
 using message::SendChatMsgRsp;
 using message::TextChatMsgReq;
 using message::TextChatMsgRsp;
+using message::UserIconReq;
+using message::UserIconRsp;
 
 class ChatServiceImpl : public ChatService::Service {
 public:
@@ -34,6 +36,9 @@ public:
     Status NotifyKickUser(
         ServerContext* context, const KickUserReq* request,
         KickUserRsp* response) override;
+    Status NotifyUserIcon(
+        ServerContext* context, const UserIconReq* request,
+        UserIconRsp* response) override;
 
 private:
 };

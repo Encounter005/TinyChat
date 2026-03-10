@@ -30,6 +30,7 @@ service ChatService {
     rpc NotifyAuthFriend(AuthFriendReq)   returns (AuthFriendRsp) {}
     rpc NotifyTextChatmsg(TextChatMsgReq) returns (TextChatMsgRsp) {}
     rpc NotifyKickUser(KickUserReq) returns (KickUserRsp) {}
+    rpc NotifyUserIcon(UserIconReq) returns (UserIconRsp) {}
 }
 
 service VarifyService {
@@ -151,4 +152,16 @@ message KickUserReq {
 message KickUserRsp {
     ErrorCode error = 1;
     int32 uid = 2;
+}
+
+message UserIconReq {
+  int32 uid = 1;        // 谁的头像变了（changed uid）
+  int32 owner_uid = 2;  // 要通知谁（在线 owner）
+  string icon = 3;      // 新 iconName（FileServer 文件名）
+}
+
+message UserIconRsp {
+  ErrorCode error = 1;
+  int32 uid = 2;
+  int32 owner_uid = 3;
 }

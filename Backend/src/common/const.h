@@ -112,6 +112,7 @@ enum class MsgId : uint16_t {
     ID_HEARTBEAT_RSP            = 122,   // 心跳回复
     ID_PULL_HISTORY_MSG_REQ     = 123,   // 拉取历史消息请求
     ID_PULL_HISTORY_MSG_RSP     = 124,   // 拉取历史消息回复
+    ID_NOTIFY_USER_ICON_REQ     = 125,
 };
 
 constexpr MsgId INVALID_MSG_ID = static_cast<MsgId>(0);
