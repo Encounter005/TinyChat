@@ -3,6 +3,8 @@
 #include "avatarcache.h"
 #include "clickedlabel.h"
 #include "datapaths.h"
+#include "docpayload.h"
+#include "onlyofficeurl.h"
 #include "file.grpc.pb.h"
 #include "filebubble.h"
 #include "picturebubble.h"
@@ -21,9 +23,12 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QDesktopServices>
+#include <QPushButton>
 #include <QSettings>
 #include <QStyleOption>
 #include <QThread>
+#include <QUrlQuery>
 #include <QUuid>
 #include <QCoreApplication>
 #include <grpcpp/client_context.h>
@@ -32,7 +37,6 @@
 
 namespace {
 const QString kImagePayloadPrefix = "[img]";
-const QString kFilePayloadPrefix = "[file]";
 
 QString BuildMsgId(qint64 ts)
 {
@@ -55,6 +59,25 @@ QString BuildRemoteFileName(int uid, qint64 ts, const QString &local_path)
     const QString safe_ext = ext.isEmpty() ? QStringLiteral("bin") : ext;
     const QString random = QUuid::createUuid().toString(QUuid::WithoutBraces);
     return QString("file_%1_%2_%3.%4").arg(uid).arg(ts).arg(random).arg(safe_ext);
+}
+
+QUrl BuildOnlyOfficeUrl(const QString &remote_name)
+{
+    QString app_path = QCoreApplication::applicationDirPath();
+    QString config_path = QDir::toNativeSeparators(
+        app_path + QDir::separator() + "config.ini");
+    QSettings settings(config_path, QSettings::IniFormat);
+    QString host = settings.value("OnlyOffice/host").toString();
+    int port = settings.value("OnlyOffice/port").toInt();
+    QString path = settings.value("OnlyOffice/path").toString();
+
+    if (host.isEmpty()) {
+        host = settings.value("GateServer/host").toString();
+        port = settings.value("GateServer/port").toInt();
+        path = QStringLiteral("/onlyoffice/editor");
+    }
+
+    return BuildOnlyOfficeUrlFromParts(host, port, path, remote_name);
 }
 
 QString FormatChatTime(qint64 timestamp_secs)
@@ -256,11 +279,16 @@ void ChatPage::on_send_btn_clicked() {
             const QFileInfo fi(local_path);
             const QString display_name = fi.fileName();
             const qint64 file_size = fi.size();
-            const QString remote_name = BuildRemoteFileName(user_info->_uid, msg_ts, local_path);
+            const QString remote_name
+                = BuildRemoteFileName(user_info->_uid, msg_ts, local_path);
+            const bool is_doc = IsOfficeDocument(local_path);
 
             auto *file_bubble = new FileBubble(display_name, role);
             file_bubble->setSelectable(false);
             file_bubble->setTransferProgress(0);
+            if (is_doc) {
+                file_bubble->setIconPath(":/img/document.png");
+            }
             pBubble = file_bubble;
             auto bubble_frame = qobject_cast<BubbleFrame *>(file_bubble);
             if (bubble_frame) {
@@ -283,8 +311,8 @@ void ChatPage::on_send_btn_clicked() {
                         QFile::copy(local_path, target_path);
                     }
 
-                    const QString payload
-                        = BuildFilePayload(remote_name, display_name, file_size);
+                    const QString payload = BuildFilePayload(
+                        remote_name, display_name, file_size, is_doc);
                     QJsonObject one_obj;
                     QJsonArray one_arr;
                     QJsonObject m;
@@ -332,7 +360,8 @@ void ChatPage::slot_switch_to_upload() {
         this,
         tr("选择文件"),
         QString(),
-        tr("All Files (*.*)"));
+        tr("Documents (*.doc *.docx *.xls *.xlsx *.ppt *.pptx);;"
+           "All Files (*.*)"));
     if (files.isEmpty()) {
         return;
     }
@@ -359,19 +388,6 @@ QString ChatPage::BuildImagePayload(const QString &remote_name)
     return kImagePayloadPrefix + remote_name;
 }
 
-QString ChatPage::BuildFilePayload(
-    const QString &remote_name,
-    const QString &display_name,
-    qint64 file_size)
-{
-    QJsonObject obj;
-    obj["remote"] = remote_name;
-    obj["name"] = display_name;
-    obj["size"] = file_size;
-    return kFilePayloadPrefix
-        + QString::fromUtf8(QJsonDocument(obj).toJson(QJsonDocument::Compact));
-}
-
 bool ChatPage::IsImagePayload(const QString &content, QString *remote_name)
 {
     if (!content.startsWith(kImagePayloadPrefix)) {
@@ -383,32 +399,6 @@ bool ChatPage::IsImagePayload(const QString &content, QString *remote_name)
     return true;
 }
 
-bool ChatPage::IsFilePayload(
-    const QString &content,
-    QString *remote_name,
-    QString *display_name,
-    qint64 *file_size)
-{
-    if (!content.startsWith(kFilePayloadPrefix)) {
-        return false;
-    }
-    const QString json = content.mid(kFilePayloadPrefix.length());
-    const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
-    if (!doc.isObject()) {
-        return false;
-    }
-    const QJsonObject obj = doc.object();
-    if (remote_name) {
-        *remote_name = obj["remote"].toString();
-    }
-    if (display_name) {
-        *display_name = obj["name"].toString();
-    }
-    if (file_size) {
-        *file_size = obj["size"].toVariant().toLongLong();
-    }
-    return true;
-}
 
 void ChatPage::UploadFileAsync(
     const QString &local_path,
@@ -685,11 +675,16 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
     QString file_display_name;
     qint64  file_size = 0;
     const bool is_image = IsImagePayload(msg->_msg_content, &image_remote_name);
-    const bool is_file = IsFilePayload(
-        msg->_msg_content,
-        &file_remote_name,
-        &file_display_name,
-        &file_size);
+    FilePayloadInfo file_info;
+    const bool is_file = ParseFilePayload(msg->_msg_content, &file_info);
+    const bool is_doc = is_file
+                        && (file_info.is_doc
+                            || IsOfficeDocument(file_info.display_name));
+    if (is_file) {
+        file_remote_name = file_info.remote_name;
+        file_display_name = file_info.display_name;
+        file_size = file_info.size;
+    }
     // todo... 添加聊天显示
     if (msg->_from_uid == self_info->_uid) {
         role = ChatRole::SELF;
@@ -703,6 +698,9 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
             auto *file_bubble = new FileBubble(file_display_name, role);
             file_bubble->setSelectable(false);
             file_bubble->setReceived(false);
+            if (is_doc) {
+                file_bubble->setIconPath(":/img/document.png");
+            }
             pBubble = file_bubble;
         } else if (is_image) {
             const QString local_image = DataPaths::ImagesDir() + QDir::separator() + image_remote_name;
@@ -748,6 +746,9 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
             auto *file_bubble = new FileBubble(file_display_name, role);
             file_bubble->setSelectable(false);
             file_bubble->setReceived(false);
+            if (is_doc) {
+                file_bubble->setIconPath(":/img/document.png");
+            }
             const QString msg_id = msg->_msg_id;
             _pending_file_bubbles[msg_id] = file_bubble;
             _pending_file_remote[msg_id] = file_remote_name;
@@ -756,24 +757,57 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
                 file_bubble,
                 &FileBubble::sig_clicked,
                 this,
-                [this, msg_id, file_bubble, file_remote_name]() {
+                [this, msg_id, file_bubble, file_info, is_doc]() {
                     if (!file_bubble) {
                         return;
                     }
-                    const auto ret = QMessageBox::question(
-                        this,
-                        tr("接收文件"),
-                        tr("是否接收该文件？"),
-                        QMessageBox::Yes | QMessageBox::No,
-                        QMessageBox::Yes);
-                    if (ret != QMessageBox::Yes) {
-                        return;
+                    if (is_doc) {
+                        QMessageBox box(this);
+                        box.setWindowTitle(tr("文档操作"));
+                        box.setText(tr("请选择操作"));
+                        QPushButton *btn_edit
+                            = box.addButton(tr("在线编辑"), QMessageBox::AcceptRole);
+                        QPushButton *btn_download
+                            = box.addButton(tr("下载"), QMessageBox::DestructiveRole);
+                        box.addButton(tr("取消"), QMessageBox::RejectRole);
+                        box.exec();
+
+                        if (box.clickedButton() == btn_edit) {
+                            const QUrl url = BuildOnlyOfficeUrl(file_info.remote_name);
+                            if (url.host().isEmpty()) {
+                                QMessageBox::warning(
+                                    this,
+                                    tr("打开失败"),
+                                    tr("GateServer 地址未配置"));
+                                return;
+                            }
+                            if (!QDesktopServices::openUrl(url)) {
+                                QMessageBox::warning(
+                                    this,
+                                    tr("打开失败"),
+                                    tr("无法打开浏览器"));
+                            }
+                            return;
+                        }
+                        if (box.clickedButton() != btn_download) {
+                            return;
+                        }
+                    } else {
+                        const auto ret = QMessageBox::question(
+                            this,
+                            tr("接收文件"),
+                            tr("是否接收该文件？"),
+                            QMessageBox::Yes | QMessageBox::No,
+                            QMessageBox::Yes);
+                        if (ret != QMessageBox::Yes) {
+                            return;
+                        }
                     }
                     const QString save_path
-                        = DataPaths::FilesDir() + QDir::separator() + file_remote_name;
+                        = DataPaths::FilesDir() + QDir::separator() + file_info.remote_name;
                     file_bubble->setTransferProgress(0);
                     DownloadFileAsync(
-                        file_remote_name,
+                        file_info.remote_name,
                         save_path,
                         [file_bubble](int progress) {
                             if (file_bubble) {

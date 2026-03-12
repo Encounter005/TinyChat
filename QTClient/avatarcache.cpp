@@ -1,4 +1,5 @@
 #include "avatarcache.h"
+#include "botuser.h"
 #include "datapaths.h"
 #include "file.grpc.pb.h"
 #include "file.pb.h"
@@ -23,6 +24,10 @@ QString AvatarCache::Cachepath(int uid, const QString& iconName) {
 }
 
 QPixmap AvatarCache::PixmapOrPlaceholder(int uid, const QString& iconName) {
+    if (IsBotUid(uid)) {
+        QPixmap pix(BotAvatarPath());
+        if (!pix.isNull()) return pix;
+    }
     QString p = Cachepath(uid, iconName);
     if (QFile::exists(p)) {
         QPixmap pix(p);
@@ -34,6 +39,8 @@ QPixmap AvatarCache::PixmapOrPlaceholder(int uid, const QString& iconName) {
 }
 
 void AvatarCache::EnsureDownloaded(int uid, const QString& iconName) {
+
+    if (IsBotUid(uid)) return;
     if (iconName.isEmpty()) return;
     const QString p = Cachepath(uid, iconName);
     if (QFile::exists(p)) return;
@@ -82,13 +89,13 @@ bool AvatarCache::DownloadBlocking(
     auto channel = grpc::CreateChannel(
         (host + ":" + port).toStdString(), grpc::InsecureChannelCredentials());
     auto stub = FileService::FileTransport::NewStub(channel);
-    if(!stub) {
+    if (!stub) {
         err = "create grpc stub failed";
         return false;
     }
 
-    grpc::ClientContext ctx;
-    FileService::DownloadRequest req;
+    grpc::ClientContext           ctx;
+    FileService::DownloadRequest  req;
     FileService::DownloadResponse resp;
     req.set_file_name(iconName.toStdString());
     req.set_start_offset(0);
@@ -96,17 +103,18 @@ bool AvatarCache::DownloadBlocking(
 
     QDir().mkpath(QFileInfo(savePath).absolutePath());
     QFile out(savePath);
-    if(!out.open(QIODevice::WriteOnly | QIODevice::Truncate) ) {
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         err = "open local file failed";
         return false;
     }
 
     bool gotData = false;
-    while(reader->Read(&resp)) {
-        if(resp.has_chunk()) {
+    while (reader->Read(&resp)) {
+        if (resp.has_chunk()) {
             const std::string chunk = resp.chunk();
-            if(!chunk.empty()) {
-                if(out.write(chunk.data(), static_cast<qint64>(chunk.size())) != static_cast<qint64>(chunk.size())) {
+            if (!chunk.empty()) {
+                if (out.write(chunk.data(), static_cast<qint64>(chunk.size()))
+                    != static_cast<qint64>(chunk.size())) {
                     out.close();
                     err = "write local file failed";
                     return false;
@@ -117,18 +125,17 @@ bool AvatarCache::DownloadBlocking(
     }
     out.close();
     grpc::Status st = reader->Finish();
-    if(!st.ok()) {
+    if (!st.ok()) {
         err = QString::fromStdString(st.error_message());
         return false;
     }
 
-    if(!gotData) {
+    if (!gotData) {
         err = "empty stream";
         return false;
     }
 
     return true;
-
 }
 
 QString AvatarCache::DownloadKey(int uid, const QString& iconName) const {

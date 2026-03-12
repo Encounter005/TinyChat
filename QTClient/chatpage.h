@@ -28,11 +28,6 @@ public:
     void AppendChatMsg(std::shared_ptr<TextChatData> msg);
 private:
     static bool IsImagePayload(const QString &content, QString *remote_name = nullptr);
-    static bool IsFilePayload(
-        const QString &content,
-        QString *remote_name = nullptr,
-        QString *display_name = nullptr,
-        qint64 *file_size = nullptr);
     void UploadImageAsync(
         const QString &local_path,
         const QString &remote_name,
@@ -56,10 +51,6 @@ private:
         const std::function<void()> &on_success,
         const std::function<void(const QString &)> &on_error);
     static QString BuildImagePayload(const QString &remote_name);
-    static QString BuildFilePayload(
-        const QString &remote_name,
-        const QString &display_name,
-        qint64 file_size);
 
     Ui::ChatPage *ui;
     std::shared_ptr<UserInfo> _user_info;

@@ -5,6 +5,7 @@
 #include "common/ChatServerInfo.h"
 #include "common/UserMessage.h"
 #include "common/const.h"
+#include "grpcClient/AiChatClient.h"
 #include "grpcClient/ChatClient.h"
 #include "grpcClient/StatusClient.h"
 #include "infra/Defer.h"
@@ -216,9 +217,9 @@ void LogicHandler::HandlePullHistory(
         return;
     }
 
-    const int uid = src["uid"].asInt();
-    int days = src.isMember("days") ? src["days"].asInt() : 7;
-    int limit = src.isMember("limit") ? src["limit"].asInt() : 50;
+    const int uid   = src["uid"].asInt();
+    int       days  = src.isMember("days") ? src["days"].asInt() : 7;
+    int       limit = src.isMember("limit") ? src["limit"].asInt() : 50;
     if (days <= 0) {
         days = 7;
     }
@@ -229,21 +230,23 @@ void LogicHandler::HandlePullHistory(
     auto bound_session = UserManager::getInstance()->GetSession(uid);
     if (!bound_session || bound_session->Id() != session->Id()) {
         root["error"] = static_cast<int>(ErrorCodes::UID_INVALID);
-        root["uid"] = uid;
+        root["uid"]   = uid;
         session->Send(MsgId::ID_PULL_HISTORY_MSG_RSP, root.toStyledString());
         return;
     }
 
-    auto recent_msgs_res = MessagePersistenceRepository::GetRecentMessagesWithCache(uid, days, limit);
+    auto recent_msgs_res
+        = MessagePersistenceRepository::GetRecentMessagesWithCache(
+            uid, days, limit);
     if (!recent_msgs_res.IsOK()) {
         root["error"] = static_cast<int>(recent_msgs_res.Error());
-        root["uid"] = uid;
+        root["uid"]   = uid;
         session->Send(MsgId::ID_PULL_HISTORY_MSG_RSP, root.toStyledString());
         return;
     }
 
     root["error"] = static_cast<int>(ErrorCodes::SUCCESS);
-    root["uid"] = uid;
+    root["uid"]   = uid;
 
     Json::Reader reader;
     for (const auto &fm : recent_msgs_res.Value()) {
@@ -413,7 +416,7 @@ void LogicHandler::HandleChatTextMsg(
 
     Json::Value normalized_arrays(Json::arrayValue);
     if (arrays.isArray()) {
-        for (const auto& one : arrays) {
+        for (const auto &one : arrays) {
             Json::Value normalized = one;
             if (!normalized.isMember("timestamp")
                 || !normalized["timestamp"].isInt64()) {
@@ -423,11 +426,11 @@ void LogicHandler::HandleChatTextMsg(
         }
     }
 
-    root["error"]            = static_cast<int>(ErrorCodes::SUCCESS);
-    root["timestamp"]        = now_ts;
-    root["text_array"]       = normalized_arrays;
-    root["fromuid"]          = uid;
-    root["touid"]            = touid;
+    root["error"]      = static_cast<int>(ErrorCodes::SUCCESS);
+    root["timestamp"]  = now_ts;
+    root["text_array"] = normalized_arrays;
+    root["fromuid"]    = uid;
+    root["touid"]      = touid;
 
     // Cache Messages
     auto cache_res = MessagePersistenceRepository::SaveChatMessage(
@@ -441,6 +444,86 @@ void LogicHandler::HandleChatTextMsg(
         // 继续处理，缓存失败不应影响消息推送
     } else {
         LOG_DEBUG("[ChatServer] Message cached: {} -> {}", uid, touid);
+    }
+
+    if (touid == BOT_UID) {
+        auto req_id = static_cast<MsgId>(msg.msg_id);
+        session->Send(ReqToRsp(req_id), root.toStyledString());
+
+        std::string query;
+        std::string query_msgid;
+        if (normalized_arrays.isArray()) {
+            for (const auto &item : normalized_arrays) {
+                if (item.isMember("content") && item["content"].isString()) {
+                    query = item["content"].asString();
+                }
+
+                if (item.isMember("msgid") && item["msgid"].isString()) {
+                    query_msgid = item["msgid"].asString();
+                }
+            }
+        }
+
+        std::string answer;
+        if (query.empty()) {
+            answer = "请输入文本消息后再试。";
+        } else {
+            auto ai_rsp = AiChatClient::getInstance()->Chat(uid, query, {});
+            if (ai_rsp.error() == static_cast<int>(ErrorCodes::SUCCESS)
+                && !ai_rsp.answer().empty()) {
+                answer = ai_rsp.answer();
+            } else {
+                answer = "AI 服务暂时不可用，请稍后重试。";
+                LOG_WARN(
+                    "[ChatServer] AiChat failed, uid={}, err={}, err_msg={}",
+                    uid,
+                    ai_rsp.error(),
+                    ai_rsp.error_msg());
+            }
+
+            //  组装机器人回复消息
+            const auto  ai_ts = static_cast<int64_t>(std::time(nullptr));
+            Json::Value ai_msg;
+            ai_msg["error"]     = static_cast<int>(ErrorCodes::SUCCESS);
+            ai_msg["timestamp"] = ai_ts;
+            ai_msg["fromuid"]   = BOT_UID;
+            ai_msg["touid"]     = uid;
+
+            Json::Value arr(Json::arrayValue);
+            Json::Value one;
+            one["content"]   = answer;
+            one["timestamp"] = ai_ts;
+            if (!query_msgid.empty()) {
+                one["msgid"] = query_msgid + "_bot";
+            } else {
+                one["msgid"] = std::string("msg_") + std::to_string(ai_ts)
+                               + "_bot_" + std::to_string(uid);
+            }
+            arr.append(one);
+            ai_msg["text_array"] = arr;
+
+            //  持久化机器人回复
+            auto bot_cache_res = MessagePersistenceRepository::SaveChatMessage(
+                BOT_UID, uid, ai_msg.toStyledString());
+            if (!bot_cache_res.IsOK()) {
+                LOG_WARN(
+                    "[ChatServer] Failed to save bot message: {} -> {}",
+                    BOT_UID,
+                    uid);
+            }
+
+            //  在线推送 / 离线缓存
+            auto user_session = UserManager::getInstance()->GetSession(uid);
+            if (user_session) {
+                user_session->Send(
+                    MsgId::ID_NOTIFY_TEXT_CHAT_MSG_REQ,
+                    ai_msg.toStyledString());
+            } else {
+                UserRepository::SaveOfflineMessage(
+                    uid, ai_msg.toStyledString());
+            }
+            return;
+        }
     }
 
     Defer defer([&root, session, &msg]() {

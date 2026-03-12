@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package ai;
+
+service AiService {
+    rpc Chat(AiChatReq) returns (AiChatRsp) {}
+}
+
+message HistoryTurn {
+    string role = 1; //human or bot
+    string content = 2;
+}
+
+message AiChatReq {
+    int32 uid = 1;
+    string query = 2;
+    repeated HistoryTurn history = 3;
+}
+
+message AiChatRsp {
+    int32 error = 1;
+    string answer = 2;
+    string error_msg = 3;
+}
+

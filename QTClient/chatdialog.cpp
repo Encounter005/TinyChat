@@ -1,5 +1,6 @@
 #include "chatdialog.h"
 #include "avatarcache.h"
+#include "botuser.h"
 #include "chatuserwidget.h"
 #include "contactuseritem.h"
 #include "contactuserlist.h"
@@ -7,6 +8,7 @@
 #include "loadingdialog.h"
 #include "messagecachedb.h"
 #include "messagecacherepository.h"
+#include "qlistwidget.h"
 #include "tcpmanager.h"
 #include "ui_chatdialog.h"
 #include "usermanager.h"
@@ -331,6 +333,8 @@ void ChatDialog::ShowSearch(bool bsearch) {
 }
 
 void ChatDialog::addChatUserList() {
+    AddBotChatItemIFMissing();
+
     // 先按照好友列表加载聊天记录，等以后客户端实现聊天记录数据库之后再按照最后信息排序
     auto friend_list = UserManager::getInstance()->GetChatListPerPage();
     if (friend_list.empty() == false) {
@@ -649,13 +653,16 @@ void ChatDialog::slot_append_send_chat_msg(
             repo.SaveOne(
                 ownerUid,
                 *msgdata,
-                msgdata ? msgdata->_timestamp : QDateTime::currentSecsSinceEpoch());
+                msgdata ? msgdata->_timestamp
+                        : QDateTime::currentSecsSinceEpoch());
         }
         return;
     }
 }
 
 void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg) {
+
+
     auto find_iter = _chat_items_added.find(msg->_from_uid);
     if (find_iter != _chat_items_added.end()) {
         qDebug() << "set chat item msg, uid is " << msg->_from_uid;
@@ -687,9 +694,16 @@ void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg) {
     // 如果没找到，则创建新的插入listwidget
 
     auto* chat_user_wid = new ChatUserWidget();
+
+    if (IsBotUid(msg->_from_uid)) {
+        auto bot_info = BuildBotUserInfo();
+        chat_user_wid->SetInfo(bot_info);
+    } else {
+
+        auto fi_ptr = UserManager::getInstance()->GetFriendById(msg->_from_uid);
+        chat_user_wid->SetInfo(fi_ptr);
+    }
     // 查询好友信息
-    auto fi_ptr = UserManager::getInstance()->GetFriendById(msg->_from_uid);
-    chat_user_wid->SetInfo(fi_ptr);
     QListWidgetItem* item = new QListWidgetItem;
     // qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
     item->setSizeHint(chat_user_wid->sizeHint());
@@ -987,7 +1001,8 @@ void ChatDialog::switchStackedPageAnimated(QWidget* page) {
 
     ui->stackedWidget->setCurrentWidget(page);
 
-    auto* effect = qobject_cast<QGraphicsOpacityEffect*>(page->graphicsEffect());
+    auto* effect
+        = qobject_cast<QGraphicsOpacityEffect*>(page->graphicsEffect());
     if (!effect) {
         effect = new QGraphicsOpacityEffect(page);
         page->setGraphicsEffect(effect);
@@ -1016,8 +1031,50 @@ void ChatDialog::animateListItemIntro(QWidget* itemWidget) {
     anim->setStartValue(0.0);
     anim->setEndValue(1.0);
     anim->setEasingCurve(QEasingCurve::OutCubic);
-    QObject::connect(anim, &QPropertyAnimation::finished, itemWidget, [itemWidget]() {
-        itemWidget->setGraphicsEffect(nullptr);
-    });
+    QObject::connect(
+        anim, &QPropertyAnimation::finished, itemWidget, [itemWidget]() {
+            itemWidget->setGraphicsEffect(nullptr);
+        });
     anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+bool ChatDialog::HasBotChatItemForTest() const {
+    return _chat_items_added.contains(BOT_UID);
+}
+
+
+void ChatDialog::AddBotChatItemIFMissing() {
+    if (HasBotChatItemForTest()) return;
+
+    auto  bot_info      = BuildBotUserInfo();
+    auto* chat_user_wid = new ChatUserWidget();
+    chat_user_wid->SetInfo(bot_info);
+
+    // 关键：从本地缓存恢复 bot 历史
+    const int      owner_uid = UserManager::getInstance()->GetUid();
+    MessageCacheDb db;
+    if (owner_uid > 0 && db.OpenForOwner(owner_uid)) {
+        MessageCacheRepository repo(db);
+        auto                   all_msgs = repo.LoadByOwner(owner_uid);
+
+        std::vector<std::shared_ptr<TextChatData>> bot_msgs;
+        bot_msgs.reserve(all_msgs.size());
+        for (const auto& m : all_msgs) {
+            if (!m) continue;
+            const int peer_uid
+                = (m->_from_uid == owner_uid) ? m->_to_uid : m->_from_uid;
+            if (peer_uid == BOT_UID) {
+                bot_msgs.push_back(m);
+            }
+        }
+        if (!bot_msgs.empty()) {
+            chat_user_wid->updateLastMsg(bot_msgs);
+        }
+    }
+
+    auto* item = new QListWidgetItem;
+    item->setSizeHint(chat_user_wid->sizeHint());
+    ui->chat_user_list->insertItem(0, item);
+    ui->chat_user_list->setItemWidget(item, chat_user_wid);
+    _chat_items_added.insert(BOT_UID, item);
 }

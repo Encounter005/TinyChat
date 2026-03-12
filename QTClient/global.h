@@ -9,6 +9,7 @@
 #include <QJsonObject>
 #include "QStyle"
 #include "QJsonObject"
+#include "botuser.h"
 
 /*
 * @brief repolish 刷新qss样式

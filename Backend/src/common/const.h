@@ -136,5 +136,7 @@ constexpr MsgId ReqToRsp(MsgId req) {
     }
 }
 
+constexpr int BOT_UID = -1;
+
 
 #endif   // CONST_H_

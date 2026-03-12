@@ -1,5 +1,7 @@
 #include "filebubble.h"
+#include "qpixmap.h"
 
+#include <QCursor>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMouseEvent>
@@ -7,7 +9,6 @@
 #include <QProgressBar>
 #include <QToolButton>
 #include <QVBoxLayout>
-#include <QCursor>
 
 FileBubble::FileBubble(const QString &file_name, ChatRole role, QWidget *parent)
     : BubbleFrame(role, parent)
@@ -15,11 +16,12 @@ FileBubble::FileBubble(const QString &file_name, ChatRole role, QWidget *parent)
     , m_iconLabel(nullptr)
     , m_selectBtn(nullptr)
     , m_progressBar(nullptr)
-{
-    QWidget *container = new QWidget(this);
-    QVBoxLayout *vbox = new QVBoxLayout(container);
+    , m_iconPath(":/img/file.png") {
+    QWidget     *container = new QWidget(this);
+    QVBoxLayout *vbox      = new QVBoxLayout(container);
     vbox->setContentsMargins(0, 0, 0, 0);
     vbox->setSpacing(6);
+
 
     m_nameLabel = new QLabel(file_name, container);
     m_nameLabel->setWordWrap(true);
@@ -33,7 +35,7 @@ FileBubble::FileBubble(const QString &file_name, ChatRole role, QWidget *parent)
     m_iconLabel = new QLabel(container);
     m_iconLabel->setFixedSize(48, 48);
     m_iconLabel->setScaledContents(true);
-    m_iconLabel->setPixmap(QPixmap(":/img/file.png"));
+    m_iconLabel->setPixmap(QPixmap(m_iconPath));
     hbox->addWidget(m_iconLabel);
 
     m_selectBtn = new QToolButton(container);
@@ -60,23 +62,21 @@ FileBubble::FileBubble(const QString &file_name, ChatRole role, QWidget *parent)
         emit sig_select_changed(checked);
     });
 
-    int left = layout()->contentsMargins().left();
-    int right = layout()->contentsMargins().right();
-    int top = layout()->contentsMargins().top();
+    int left   = layout()->contentsMargins().left();
+    int right  = layout()->contentsMargins().right();
+    int top    = layout()->contentsMargins().top();
     int bottom = layout()->contentsMargins().bottom();
     setFixedSize(240 + left + right, 104 + top + bottom);
 }
 
-void FileBubble::mousePressEvent(QMouseEvent *event)
-{
+void FileBubble::mousePressEvent(QMouseEvent *event) {
     if (event && event->button() == Qt::LeftButton) {
         emit sig_clicked();
     }
     BubbleFrame::mousePressEvent(event);
 }
 
-void FileBubble::setSelectable(bool selectable)
-{
+void FileBubble::setSelectable(bool selectable) {
     if (!m_selectBtn) {
         return;
     }
@@ -87,13 +87,11 @@ void FileBubble::setSelectable(bool selectable)
     }
 }
 
-bool FileBubble::isSelected() const
-{
+bool FileBubble::isSelected() const {
     return m_selectBtn && m_selectBtn->isVisible() && m_selectBtn->isChecked();
 }
 
-void FileBubble::setReceived(bool received)
-{
+void FileBubble::setReceived(bool received) {
     setMuted(received);
     if (!m_selectBtn) {
         return;
@@ -108,8 +106,7 @@ void FileBubble::setReceived(bool received)
     }
 }
 
-void FileBubble::setTransferProgress(int progress)
-{
+void FileBubble::setTransferProgress(int progress) {
     if (!m_progressBar) {
         return;
     }
@@ -118,8 +115,7 @@ void FileBubble::setTransferProgress(int progress)
     m_progressBar->setValue(qBound(0, progress, 100));
 }
 
-void FileBubble::setTransferDone()
-{
+void FileBubble::setTransferDone() {
     if (!m_progressBar) {
         return;
     }
@@ -127,11 +123,21 @@ void FileBubble::setTransferDone()
     m_progressBar->hide();
 }
 
-void FileBubble::setTransferFailed()
-{
+void FileBubble::setTransferFailed() {
     if (!m_progressBar) {
         return;
     }
     m_progressBar->show();
     m_progressBar->setFormat(QStringLiteral("传输失败"));
+}
+
+void FileBubble::setIconPath(const QString &path) {
+    m_iconPath = path;
+    if(m_iconLabel) {
+        m_iconLabel->setPixmap(QPixmap(m_iconPath));
+    }
+}
+
+QString FileBubble::iconPath() const {
+    return m_iconPath;
 }

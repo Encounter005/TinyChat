@@ -24,6 +24,8 @@ public:
     void ClearLabelState(StateWidget* lb);
     void UpdateChatMsg(std::vector<std::shared_ptr<TextChatData>> msgdata);
 
+    bool HasBotChatItemForTest() const;
+
 
 public slots:
     void slot_loading_chat_user();
@@ -57,6 +59,7 @@ private:
     void SetSelectChatItem(int uid );
     void AddLBGroup(StateWidget* );
     void CloseFindDlg();
+    void AddBotChatItemIFMissing();
 
 private:
     Ui::ChatDialog *ui;

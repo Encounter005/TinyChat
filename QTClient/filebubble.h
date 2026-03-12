@@ -20,6 +20,9 @@ public:
     void setTransferProgress(int progress);
     void setTransferDone();
     void setTransferFailed();
+    void setIconPath(const QString& path);
+    QString iconPath() const;
+    
 
 signals:
     void sig_clicked();
@@ -33,6 +36,7 @@ private:
     QLabel *m_iconLabel;
     QToolButton *m_selectBtn;
     QProgressBar *m_progressBar;
+    QString m_iconPath;
 };
 
 #endif // FILEBUBBLE_H

@@ -15,6 +15,7 @@ SOURCES += \
     applyfriendpage.cpp \
     authenfriend.cpp \
     avatarcache.cpp \
+    botuser.cpp \
     bubbleframe.cpp \
     chatdialog.cpp \
     chatitembase.cpp \
@@ -29,6 +30,7 @@ SOURCES += \
     contactuserlist.cpp \
     customedit.cpp \
     datapaths.cpp \
+    docpayload.cpp \
     file.grpc.pb.cc \
     file.pb.cc \
     filebubble.cpp \
@@ -50,6 +52,7 @@ SOURCES += \
     messagecacherepository.cpp \
     messagesynccoordinator.cpp \
     messagetextedit.cpp \
+    onlyofficeurl.cpp \
     picturebubble.cpp \
     register.cpp \
     resetdialog.cpp \
@@ -69,6 +72,7 @@ HEADERS += \
     applyfriendpage.h \
     authenfriend.h \
     avatarcache.h \
+    botuser.h \
     bubbleframe.h \
     chatdialog.h \
     chatitembase.h \
@@ -83,6 +87,7 @@ HEADERS += \
     contactuserlist.h \
     customedit.h \
     datapaths.h \
+    docpayload.h \
     file.grpc.pb.h \
     file.pb.h \
     filebubble.h \
@@ -105,6 +110,7 @@ HEADERS += \
     messagesynccoordinator.h \
     messagesyncprotocol.h \
     messagetextedit.h \
+    onlyofficeurl.h \
     picturebubble.h \
     register.h \
     resetdialog.h \
