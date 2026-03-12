@@ -656,6 +656,9 @@ void ChatDialog::slot_append_send_chat_msg(
 }
 
 void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg) {
+    qDebug() << "[chat-dialog] incoming from=" << msg->_from_uid
+             << "msg_count=" << msg->_chat_msgs.size()
+             << "current_chat_uid=" << _cur_chat_uid;
     auto find_iter = _chat_items_added.find(msg->_from_uid);
     if (find_iter != _chat_items_added.end()) {
         qDebug() << "set chat item msg, uid is " << msg->_from_uid;
@@ -666,6 +669,7 @@ void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg) {
         }
         chat_wid->updateLastMsg(msg->_chat_msgs);
         // 更新当前聊天页面记录
+        qDebug() << "[chat-dialog] existing item, update chat view";
         UpdateChatMsg(msg->_chat_msgs);
         UserManager::getInstance()->AppendFriendChatMsg(
             msg->_from_uid, msg->_chat_msgs);
@@ -689,6 +693,8 @@ void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg) {
     auto* chat_user_wid = new ChatUserWidget();
     // 查询好友信息
     auto fi_ptr = UserManager::getInstance()->GetFriendById(msg->_from_uid);
+    qDebug() << "[chat-dialog] create new chat item, friend_found="
+             << (fi_ptr != nullptr);
     chat_user_wid->SetInfo(fi_ptr);
     QListWidgetItem* item = new QListWidgetItem;
     // qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();

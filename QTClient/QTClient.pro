@@ -29,6 +29,8 @@ SOURCES += \
     contactuserlist.cpp \
     customedit.cpp \
     datapaths.cpp \
+    docpayload.cpp \
+    onlyofficeurl.cpp \
     file.grpc.pb.cc \
     file.pb.cc \
     filebubble.cpp \
@@ -83,6 +85,8 @@ HEADERS += \
     contactuserlist.h \
     customedit.h \
     datapaths.h \
+    docpayload.h \
+    onlyofficeurl.h \
     file.grpc.pb.h \
     file.pb.h \
     filebubble.h \

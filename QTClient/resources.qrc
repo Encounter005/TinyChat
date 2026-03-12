@@ -2,6 +2,7 @@
     <qresource prefix="/">
         <file>img/head.png</file>
         <file>img/file.png</file>
+        <file>img/document.png</file>
         <file>img/a.jpg</file>
         <file>img/favicon.ico</file>
         <file>style/stylesheet.qss</file>

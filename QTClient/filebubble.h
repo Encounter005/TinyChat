@@ -14,6 +14,8 @@ class FileBubble : public BubbleFrame
 public:
     FileBubble(const QString &file_name, ChatRole role, QWidget *parent = nullptr);
 
+    void setIconPath(const QString &path);
+    QString iconPath() const;
     void setSelectable(bool selectable);
     bool isSelected() const;
     void setReceived(bool received);
@@ -33,6 +35,7 @@ private:
     QLabel *m_iconLabel;
     QToolButton *m_selectBtn;
     QProgressBar *m_progressBar;
+    QString m_iconPath;
 };
 
 #endif // FILEBUBBLE_H

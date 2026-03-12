@@ -15,6 +15,7 @@ FileBubble::FileBubble(const QString &file_name, ChatRole role, QWidget *parent)
     , m_iconLabel(nullptr)
     , m_selectBtn(nullptr)
     , m_progressBar(nullptr)
+    , m_iconPath(":/img/file.png")
 {
     QWidget *container = new QWidget(this);
     QVBoxLayout *vbox = new QVBoxLayout(container);
@@ -33,7 +34,7 @@ FileBubble::FileBubble(const QString &file_name, ChatRole role, QWidget *parent)
     m_iconLabel = new QLabel(container);
     m_iconLabel->setFixedSize(48, 48);
     m_iconLabel->setScaledContents(true);
-    m_iconLabel->setPixmap(QPixmap(":/img/file.png"));
+    m_iconLabel->setPixmap(QPixmap(m_iconPath));
     hbox->addWidget(m_iconLabel);
 
     m_selectBtn = new QToolButton(container);
@@ -65,6 +66,19 @@ FileBubble::FileBubble(const QString &file_name, ChatRole role, QWidget *parent)
     int top = layout()->contentsMargins().top();
     int bottom = layout()->contentsMargins().bottom();
     setFixedSize(240 + left + right, 104 + top + bottom);
+}
+
+void FileBubble::setIconPath(const QString &path)
+{
+    m_iconPath = path;
+    if (m_iconLabel) {
+        m_iconLabel->setPixmap(QPixmap(m_iconPath));
+    }
+}
+
+QString FileBubble::iconPath() const
+{
+    return m_iconPath;
 }
 
 void FileBubble::mousePressEvent(QMouseEvent *event)

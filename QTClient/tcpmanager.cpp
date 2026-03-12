@@ -257,10 +257,15 @@ void TcpManager::initHandlers() {
             }
             qDebug() << "Receive Text Chat Notify Success ";
             qint64 fallback_ts = jsonObj["timestamp"].toVariant().toLongLong();
+            const QJsonArray arr = jsonObj["text_array"].toArray();
+            qDebug() << "[chat-notify] from=" << jsonObj["fromuid"].toInt()
+                     << "to=" << jsonObj["touid"].toInt()
+                     << "items=" << arr.size()
+                     << "fallback_ts=" << fallback_ts;
             auto msg_ptr = std::make_shared<TextChatMsg>(
                 jsonObj["fromuid"].toInt(),
                 jsonObj["touid"].toInt(),
-                jsonObj["text_array"].toArray(),
+                arr,
                 fallback_ts);
             emit sig_text_chat_msg(msg_ptr);
         });
