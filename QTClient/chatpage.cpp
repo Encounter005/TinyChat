@@ -360,8 +360,7 @@ void ChatPage::slot_switch_to_upload() {
         this,
         tr("选择文件"),
         QString(),
-        tr("Documents (*.doc *.docx *.xls *.xlsx *.ppt *.pptx);;"
-           "All Files (*.*)"));
+        tr("All Files (*.*);;Documents (*.doc *.docx *.xls *.xlsx *.ppt *.pptx)"));
     if (files.isEmpty()) {
         return;
     }
@@ -684,6 +683,16 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
         file_remote_name = file_info.remote_name;
         file_display_name = file_info.display_name;
         file_size = file_info.size;
+        qDebug() << "[chat-page] file payload parsed"
+                 << "msg_id=" << msg->_msg_id
+                 << "remote=" << file_remote_name
+                 << "name=" << file_display_name
+                 << "size=" << file_size
+                 << "is_doc=" << is_doc;
+    } else if (msg->_msg_content.startsWith("[file]")) {
+        qDebug() << "[chat-page] file payload parse failed"
+                 << "msg_id=" << msg->_msg_id
+                 << "content=" << msg->_msg_content;
     }
     // todo... 添加聊天显示
     if (msg->_from_uid == self_info->_uid) {
@@ -733,14 +742,19 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
     } else {
         role = ChatRole::OTHER;
         ChatItemBase *pChatItem = new ChatItemBase(role);
-        auto friend_info =
-            UserManager::getInstance()->GetFriendById(msg->_from_uid);
-        if (friend_info == nullptr) {
-            return;
+        auto friend_info
+            = UserManager::getInstance()->GetFriendById(msg->_from_uid);
+        QString peer_name = QString::number(msg->_from_uid);
+        QString peer_icon;
+        int peer_uid = msg->_from_uid;
+        if (friend_info) {
+            peer_name = friend_info->_name;
+            peer_icon = friend_info->_icon;
+            peer_uid = friend_info->_uid;
         }
-        pChatItem->setUserName(friend_info->_name);
+        pChatItem->setUserName(peer_name);
         pChatItem->setUserIcon(AvatarCache::getInstance()->PixmapOrPlaceholder(
-            friend_info->_uid, friend_info->_icon));
+            peer_uid, peer_icon));
         QWidget *pBubble = nullptr;
         if (is_file) {
             auto *file_bubble = new FileBubble(file_display_name, role);
@@ -819,12 +833,17 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
                                 file_bubble->setTransferDone();
                                 file_bubble->setReceived(true);
                             }
+                            qDebug() << "[chat-page] file download finished"
+                                     << "msg_id=" << msg_id;
                             _selected_file_msgids.remove(msg_id);
                         },
-                        [file_bubble](const QString &) {
+                        [file_bubble, msg_id](const QString &err) {
                             if (file_bubble) {
                                 file_bubble->setTransferFailed();
                             }
+                            qDebug() << "[chat-page] file download failed"
+                                     << "msg_id=" << msg_id
+                                     << "error=" << err;
                         });
                 });
             pBubble = file_bubble;
