@@ -76,7 +76,7 @@ void BubbleFrame::paintEvent(QPaintEvent *e)
     if(m_role == ChatRole::OTHER)
     {
         //画气泡
-        QColor bk_color = m_muted ? QColor("#6c7086") : QColor("#313244");
+        QColor bk_color = m_muted ? QColor("#3b4e73") : QColor("#162746");
         painter.setBrush(QBrush(bk_color));
         QRect bk_rect = QRect(WIDTH_SANJIAO, 0, this->width()-WIDTH_SANJIAO, bubble_height);
         painter.drawRoundedRect(bk_rect,5,5);
@@ -97,7 +97,7 @@ void BubbleFrame::paintEvent(QPaintEvent *e)
     }
     else
     {
-        QColor bk_color = m_muted ? QColor("#7f849c") : QColor("#89b4fa");
+        QColor bk_color = m_muted ? QColor("#4769a8") : QColor("#4f86ff");
         painter.setBrush(QBrush(bk_color));
         //画气泡
         QRect bk_rect = QRect(0, 0, this->width()-WIDTH_SANJIAO, bubble_height);
@@ -119,7 +119,7 @@ void BubbleFrame::paintEvent(QPaintEvent *e)
 
     }
 
-    painter.setPen(m_muted ? QColor("#585b70") : QColor("#7f849c"));
+    painter.setPen(m_muted ? QColor("#7d8eb0") : QColor("#9fb3db"));
     QFont time_font = painter.font();
     time_font.setPointSize(9);
     painter.setFont(time_font);
@@ -137,5 +137,5 @@ void BubbleFrame::paintEvent(QPaintEvent *e)
             m_timeText);
     }
 
-    return QFrame::paintEvent(e);
+    Q_UNUSED(e);
 }

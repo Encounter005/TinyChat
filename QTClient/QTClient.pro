@@ -52,6 +52,7 @@ SOURCES += \
     messagecacherepository.cpp \
     messagesynccoordinator.cpp \
     messagetextedit.cpp \
+    onlyofficeviewerdialog.cpp \
     onlyofficeurl.cpp \
     picturebubble.cpp \
     register.cpp \
@@ -66,6 +67,7 @@ SOURCES += \
 
 HEADERS += \
     adduseritem.h \
+    animationtiming.h \
     applyfriend.h \
     applyfrienditem.h \
     applyfriendlist.h \
@@ -110,6 +112,7 @@ HEADERS += \
     messagesynccoordinator.h \
     messagesyncprotocol.h \
     messagetextedit.h \
+    onlyofficeviewerdialog.h \
     onlyofficeurl.h \
     picturebubble.h \
     register.h \
@@ -157,7 +160,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 RESOURCES += \
     resources.qrc
 
-QT += core gui network quick testlib sql
+QT += core gui network quick testlib sql webenginewidgets
 
 CONFIG += link_pkgconfig
 

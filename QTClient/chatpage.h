@@ -24,9 +24,11 @@ public:
     explicit ChatPage(QWidget *parent = nullptr);
     ~ChatPage();
     virtual void paintEvent(QPaintEvent* event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void SetUserInfo(std::shared_ptr<UserInfo> user_info);
     void AppendChatMsg(std::shared_ptr<TextChatData> msg);
 private:
+    void AnimateInputAreaHeight(int target_height);
     static bool IsImagePayload(const QString &content, QString *remote_name = nullptr);
     void UploadImageAsync(
         const QString &local_path,

@@ -53,6 +53,7 @@ private:
     void handleGlobalMousePress(QMouseEvent* event);
     void switchStackedPageAnimated(QWidget* page);
     void animateListItemIntro(QWidget* itemWidget);
+    void animateListWidgetIntro(QListWidget* listWidget);
     void loadMoreConUser();
     void loadMoreChatUser();
     void SetSelectChatPage(int uid );

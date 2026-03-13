@@ -29,7 +29,7 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent)
         pGLayout->addWidget(m_pNameLabel, 0,1, 1,1);
         pGLayout->addWidget(m_pIconLabel, 0, 2, 2,1, Qt::AlignTop);
         pGLayout->addItem(pSpacer, 1, 0, 1, 1);
-        pGLayout->addWidget(m_pBubble, 1,1, 1,1);
+        pGLayout->addWidget(m_pBubble, 1,1, 1,1, Qt::AlignRight);
         pGLayout->setColumnStretch(0, 2);
         pGLayout->setColumnStretch(1, 3);
     }else{
@@ -37,7 +37,7 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent)
         m_pNameLabel->setAlignment(Qt::AlignLeft);
         pGLayout->addWidget(m_pIconLabel, 0, 0, 2,1, Qt::AlignTop);
         pGLayout->addWidget(m_pNameLabel, 0,1, 1,1);
-        pGLayout->addWidget(m_pBubble, 1,1, 1,1);
+        pGLayout->addWidget(m_pBubble, 1,1, 1,1, Qt::AlignLeft);
         pGLayout->addItem(pSpacer, 2, 2, 1, 1);
         pGLayout->setColumnStretch(1, 3);
         pGLayout->setColumnStretch(2, 2);
@@ -59,6 +59,9 @@ void ChatItemBase::setWidget(QWidget *w)
 {
     QGridLayout *pGLayout = (qobject_cast<QGridLayout *>)(this->layout());
     pGLayout->replaceWidget(m_pBubble, w);
+    pGLayout->setAlignment(
+        w,
+        m_role == ChatRole::SELF ? Qt::AlignRight : Qt::AlignLeft);
     delete m_pBubble;
     m_pBubble = w;
 }

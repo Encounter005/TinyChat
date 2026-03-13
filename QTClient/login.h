@@ -2,6 +2,7 @@
 #define LOGIN_H
 
 #include <QDialog>
+#include <QLineEdit>
 #include "global.h"
 
 namespace Ui {
@@ -15,6 +16,7 @@ class Login : public QDialog
 public:
     explicit Login(QWidget *parent = nullptr);
     ~Login();
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     Ui::Login *ui;
@@ -29,6 +31,8 @@ private:
     bool checkPassValid();
     void initHttpHandlers();
     bool enableBtn(bool);
+    void animateInputHeight(QLineEdit *edit, int target_height);
+    void playRightPanelEnterAnimation();
 private slots:
     void slot_forget_pwd();
     void slot_login_mod_finish(ReqId id, QString res, ErrorCodes err);

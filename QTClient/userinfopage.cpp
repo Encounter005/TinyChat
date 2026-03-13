@@ -1,4 +1,5 @@
 #include "userinfopage.h"
+#include "animationtiming.h"
 #include "avatarcache.h"
 #include "global.h"
 #include "httpmanager.h"
@@ -14,7 +15,11 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QPainter>
+#include <QGraphicsOpacityEffect>
+#include <QParallelAnimationGroup>
+#include <QPropertyAnimation>
 #include <QStandardPaths>
+#include <QTimer>
 
 namespace {
 
@@ -65,9 +70,15 @@ UserInfoPage::UserInfoPage(QWidget* parent)
     auto name = UserManager::getInstance()->GetName();
     // 描述
     auto desc = UserManager::getInstance()->GetDesc();
+    ui->uid_ed->setText(QString::number(uid));
     ui->nick_ed->setText(nick);
     ui->name_ed->setText(name);
     ui->desc_ed->setText(desc);
+
+    ui->nick_ed->installEventFilter(this);
+    ui->name_ed->installEventFilter(this);
+    ui->desc_ed->installEventFilter(this);
+    QTimer::singleShot(0, this, [this]() { playPageIntroAnimation(); });
 
     connect(
         AvatarCache::getInstance().get(),
@@ -125,6 +136,82 @@ UserInfoPage::UserInfoPage(QWidget* parent)
 
 UserInfoPage::~UserInfoPage() {
     delete ui;
+}
+
+bool UserInfoPage::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event != nullptr
+        && (watched == ui->nick_ed || watched == ui->name_ed
+            || watched == ui->desc_ed)) {
+        if (event->type() == QEvent::FocusIn) {
+            animateInputHeight(qobject_cast<QLineEdit *>(watched), 40);
+        } else if (event->type() == QEvent::FocusOut) {
+            animateInputHeight(qobject_cast<QLineEdit *>(watched), 30);
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void UserInfoPage::animateInputHeight(QLineEdit *edit, int target_height)
+{
+    if (edit == nullptr) {
+        return;
+    }
+    auto *anim = new QPropertyAnimation(edit, "maximumHeight", edit);
+    anim->setDuration(UiAnim::kInputFocusMs);
+    anim->setStartValue(edit->maximumHeight());
+    anim->setEndValue(target_height);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void UserInfoPage::playPageIntroAnimation()
+{
+    auto animate_one = [](QWidget *w, int delay_ms) {
+        if (!w) {
+            return;
+        }
+
+        QTimer::singleShot(delay_ms, w, [w]() {
+            const QPoint end_pos = w->pos();
+            const QPoint start_pos = end_pos + QPoint(36, 0);
+            w->move(start_pos);
+
+            auto *group = new QParallelAnimationGroup(w);
+
+            auto *pos_anim = new QPropertyAnimation(w, "pos", group);
+            pos_anim->setDuration(UiAnim::kListItemFadeMs);
+            pos_anim->setStartValue(start_pos);
+            pos_anim->setEndValue(end_pos);
+            pos_anim->setEasingCurve(QEasingCurve::OutCubic);
+            group->addAnimation(pos_anim);
+
+            auto *effect = new QGraphicsOpacityEffect(w);
+            effect->setOpacity(0.0);
+            w->setGraphicsEffect(effect);
+
+            auto *opacity_anim = new QPropertyAnimation(effect, "opacity", group);
+            opacity_anim->setDuration(UiAnim::kListItemFadeMs);
+            opacity_anim->setStartValue(0.0);
+            opacity_anim->setEndValue(1.0);
+            opacity_anim->setEasingCurve(QEasingCurve::OutCubic);
+            group->addAnimation(opacity_anim);
+
+            QObject::connect(group, &QParallelAnimationGroup::finished, w, [w, end_pos]() {
+                w->move(end_pos);
+                w->setGraphicsEffect(nullptr);
+            });
+            group->start(QAbstractAnimation::DeleteWhenStopped);
+        });
+    };
+
+    animate_one(ui->head_lb, 0);
+    animate_one(ui->up_btn, 40);
+    animate_one(ui->uid_ed, 80);
+    animate_one(ui->nick_ed, 120);
+    animate_one(ui->name_ed, 160);
+    animate_one(ui->desc_ed, 200);
+    animate_one(ui->submit_btn, 240);
 }
 
 // 上传头像

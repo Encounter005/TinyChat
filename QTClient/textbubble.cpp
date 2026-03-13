@@ -11,11 +11,17 @@
 #include <QStyle>
 #include <QtMath>
 #include <QFont>
+#include <QMouseEvent>
 
-TextBubble::TextBubble(ChatRole role, const QString &text, QWidget *parent)
+TextBubble::TextBubble(
+    ChatRole role,
+    const QString &text,
+    TextBubble::ContentFormat format,
+    QWidget *parent)
     :BubbleFrame(role, parent)
+    , m_contentFormat(format)
 {
-    m_pTextEdit = new QTextEdit();
+    m_pTextEdit = new QTextBrowser();
     m_pTextEdit->setReadOnly(true);
     m_pTextEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_pTextEdit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -23,18 +29,33 @@ TextBubble::TextBubble(ChatRole role, const QString &text, QWidget *parent)
     m_pTextEdit->setContentsMargins(0, 0, 0, 0);
     m_pTextEdit->setLineWrapMode(QTextEdit::WidgetWidth);
     m_pTextEdit->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    m_pTextEdit->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    m_pTextEdit->setOpenLinks(true);
+    m_pTextEdit->setOpenExternalLinks(true);
+    m_pTextEdit->setMouseTracking(true);
+    m_pTextEdit->viewport()->setMouseTracking(true);
+    m_pTextEdit->viewport()->installEventFilter(this);
     m_pTextEdit->document()->setDocumentMargin(2);
     m_pTextEdit->installEventFilter(this);
     QFont font("Maple Mono NF");
     font.setPointSize(12);
     m_pTextEdit->setFont(font);
-    setPlainText(text);
+    setContent(text);
     setWidget(m_pTextEdit);
     initStyleSheet(role);
 }
 
 bool TextBubble::eventFilter(QObject *o, QEvent *e)
 {
+    if (o == m_pTextEdit->viewport() && m_contentFormat == ContentFormat::Markdown) {
+        if (e->type() == QEvent::MouseMove) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            updateHoverCursor(me->pos());
+        } else if (e->type() == QEvent::Leave) {
+            m_pTextEdit->viewport()->unsetCursor();
+        }
+    }
+
     if(m_pTextEdit == o && e->type() == QEvent::Paint)
     {
         const int currentMax = currentMaxTextWidth();
@@ -46,10 +67,28 @@ bool TextBubble::eventFilter(QObject *o, QEvent *e)
     return BubbleFrame::eventFilter(o, e);
 }
 
-void TextBubble::setPlainText(const QString &text)
+void TextBubble::setContent(const QString &text)
 {
-    m_pTextEdit->setPlainText(text);
+    if (m_contentFormat == ContentFormat::Markdown) {
+        m_pTextEdit->document()->setDefaultStyleSheet(
+            "a { color: #78c6ff; text-decoration: underline; } "
+            "a:hover { color: #a7dcff; }");
+        m_pTextEdit->setMarkdown(text);
+    } else {
+        m_pTextEdit->document()->setDefaultStyleSheet(QString());
+        m_pTextEdit->setPlainText(text);
+    }
     relayoutForWidth(currentMaxTextWidth());
+}
+
+void TextBubble::updateHoverCursor(const QPoint &pos)
+{
+    const QString anchor = m_pTextEdit->anchorAt(pos);
+    if (anchor.isEmpty()) {
+        m_pTextEdit->viewport()->unsetCursor();
+    } else {
+        m_pTextEdit->viewport()->setCursor(Qt::PointingHandCursor);
+    }
 }
 
 int TextBubble::currentMaxTextWidth() const {

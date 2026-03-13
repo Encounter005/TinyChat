@@ -235,43 +235,109 @@ ContactUserItem QLabel {
     color: #bac2de;
 }
 
+#ChatPage {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 1, y2: 1,
+        stop: 0 #05070d,
+        stop: 0.65 #090d16,
+        stop: 1 #0f1f3d
+    );
+}
+
+#ChatPage #chat_data_wid {
+    background: rgba(5, 9, 18, 0.86);
+    border: 1px solid rgba(125, 150, 198, 0.20);
+    border-radius: 14px;
+}
+
+#ChatPage #title_widget,
+#ChatPage #tool_widget,
+#ChatPage #bottom_widget {
+    background: rgba(13, 21, 36, 0.86);
+    border: none;
+}
+
+#ChatPage #title_widget {
+    border-bottom: 1px solid rgba(125, 150, 198, 0.26);
+}
+
+#ChatPage #tool_widget,
+#ChatPage #bottom_widget {
+    border-top: 1px solid rgba(125, 150, 198, 0.18);
+}
+
+#ChatPage #title_label {
+    color: #e8efff;
+    font-size: 17px;
+    font-weight: 600;
+}
+
 #chatEdit {
-    background: #181825;
-    border: 1px solid #313244;
-    color: #cdd6f4;
-    border-radius: 12px;
-    padding: 8px;
+    background: rgba(6, 12, 24, 0.92);
+    border: 1px solid rgba(118, 140, 186, 0.35);
+    color: #dce8ff;
+    border-radius: 14px;
+    padding: 10px;
+}
+
+#chatEdit:focus {
+    border: 1px solid rgba(138, 176, 255, 0.9);
+    background: rgba(8, 16, 31, 0.96);
 }
 
 #chat_data_list,
 #chat_bg,
 #chat_area {
-    background: #1e1e2e;
+    background: transparent;
     border: none;
+}
+
+#chat_area QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 4px 2px;
+}
+
+#chat_area QScrollBar::handle:vertical {
+    background: rgba(125, 150, 198, 0.45);
+    border-radius: 4px;
+    min-height: 30px;
+}
+
+#chat_area QScrollBar::handle:vertical:hover {
+    background: rgba(138, 176, 255, 0.7);
+}
+
+#chat_area QScrollBar::add-line:vertical,
+#chat_area QScrollBar::sub-line:vertical,
+#chat_area QScrollBar::add-page:vertical,
+#chat_area QScrollBar::sub-page:vertical {
+    background: transparent;
+    height: 0;
 }
 
 #recv_btn[state='normal'],
 #send_btn[state='normal'],
 #apply_sure_wid #sure_btn[state='normal'],
 #apply_sure_wid #cancel_btn[state='normal'] {
-    background: #313244;
-    border: 1px solid #45475a;
+    background: #1f2f52;
+    border: 1px solid #4f6ea8;
     border-radius: 16px;
-    color: #cdd6f4;
+    color: #eaf2ff;
 }
 
 #recv_btn[state='hover'],
 #send_btn[state='hover'],
 #apply_sure_wid #sure_btn[state='hover'],
 #apply_sure_wid #cancel_btn[state='hover'] {
-    background: #45475a;
+    background: #294273;
 }
 
 #recv_btn[state='press'],
 #send_btn[state='press'],
 #apply_sure_wid #sure_btn[state='press'],
 #apply_sure_wid #cancel_btn[state='press'] {
-    background: #585b70;
+    background: #35589a;
 }
 
 #apply_sure_wid #sure_btn,
@@ -379,6 +445,18 @@ ApplyFriendItem #addBtn[state='press'],
 #file_label[state='hover'] { border-image: url(./img/filedir_hover.png); }
 #file_label[state='press'] { border-image: url(./img/filedir_press.png); }
 
+#msg_chat[state='normal'] { border-image: url(./img/msg_chat_normal.png); }
+#msg_chat[state='hover'] { border-image: url(./img/msg_chat_hover.png); }
+#msg_chat[state='press'] { border-image: url(./img/msg_chat_press.png); }
+
+#voice_chat[state='normal'] { border-image: url(./img/voice_chat_normal.png); }
+#voice_chat[state='hover'] { border-image: url(./img/voice_chat_hover.png); }
+#voice_chat[state='press'] { border-image: url(./img/voice_chat_press.png); }
+
+#video_chat[state='normal'] { border-image: url(./img/video_chat_normal.png); }
+#video_chat[state='hover'] { border-image: url(./img/video_chat_hover.png); }
+#video_chat[state='press'] { border-image: url(./img/video_chat_press.png); }
+
 #add_tip { border-image: url(./img/addtip.png); }
 #right_tip { border-image: url(./img/right_tip.png); }
 #close_lb[state='normal'],
@@ -407,18 +485,20 @@ LoadingDialog {
 
 #Login #auth_right_panel,
 #Register #auth_right_panel,
-#ResetDialog {
+#ResetDialog #auth_right_panel {
     background: #11111b;
     border-left: 1px solid #313244;
 }
 
 #Login #auth_left_panel,
-#Register #auth_left_panel {
+#Register #auth_left_panel,
+#ResetDialog #auth_left_panel {
     background: #1e1e2e;
 }
 
 #Login QLabel#label,
-#Register QLabel#auth_left_image {
+#Register QLabel#auth_left_image,
+#ResetDialog QLabel#auth_left_image {
     border-radius: 140px;
     background: #313244;
     border: 2px solid #45475a;
@@ -426,6 +506,7 @@ LoadingDialog {
 
 #Login #title_label,
 #Register #title_label,
+#ResetDialog #title_label,
 #Register #tip_lab2 {
     font-size: 28px;
     font-weight: 700;
@@ -433,7 +514,8 @@ LoadingDialog {
 }
 
 #Login #brand_title,
-#Register #brand_title {
+#Register #brand_title,
+#ResetDialog #brand_title {
     font-size: 48px;
     font-weight: 700;
     color: #cdd6f4;
@@ -441,10 +523,13 @@ LoadingDialog {
 
 #Login #brand_subtitle,
 #Register #brand_subtitle,
+#ResetDialog #brand_subtitle,
 #Login #brand_version,
 #Register #brand_version,
+#ResetDialog #brand_version,
 #Login #desc_label,
-#Register #desc_label {
+#Register #desc_label,
+#ResetDialog #desc_label {
     color: #a6adc8;
 }
 
@@ -493,7 +578,9 @@ LoadingDialog {
 
 #Login QPushButton#register_button,
 #Register QPushButton#cancel_button,
-#Register QPushButton#get_code_button {
+#Register QPushButton#get_code_button,
+#ResetDialog QPushButton#return_btn,
+#ResetDialog QPushButton#varify_code_btn {
     background: #313244;
     color: #cdd6f4;
     border: 1px solid #45475a;
@@ -505,7 +592,11 @@ LoadingDialog {
 #Register #email_label,
 #Register #pass_label,
 #Register #confirm_label,
-#Register #verify_label {
+#Register #verify_label,
+#ResetDialog #user_label,
+#ResetDialog #email_label,
+#ResetDialog #varify_code_label,
+#ResetDialog #pwd_edit {
     min-width: 86px;
     color: #bac2de;
 }
@@ -555,12 +646,12 @@ LoadingDialog {
 
 /* ---------- Chat area polish ---------- */
 #chat_user_name {
-    color: #bac2de;
+    color: #b7cfff;
     font-size: 12px;
 }
 
 #chatEdit {
-    line-height: 1.5;
+    line-height: 1.55;
 }
 
 QTextEdit#chat_bubble_text {
@@ -570,11 +661,11 @@ QTextEdit#chat_bubble_text {
 }
 
 QTextEdit#chat_bubble_text[bubble_role='self'] {
-    color: #11111b;
+    color: #eef4ff;
 }
 
 QTextEdit#chat_bubble_text[bubble_role='other'] {
-    color: #cdd6f4;
+    color: #d7e4ff;
 }
 
 #FileUploadWindow #tip_label {

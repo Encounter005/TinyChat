@@ -1,10 +1,13 @@
 #include "chatpage.h"
+#include "animationtiming.h"
 #include "chatitembase.h"
 #include "avatarcache.h"
+#include "botuser.h"
 #include "clickedlabel.h"
 #include "datapaths.h"
 #include "docpayload.h"
 #include "onlyofficeurl.h"
+#include "onlyofficeviewerdialog.h"
 #include "file.grpc.pb.h"
 #include "filebubble.h"
 #include "picturebubble.h"
@@ -23,7 +26,10 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
-#include <QDesktopServices>
+#include <QEasingCurve>
+#include <QParallelAnimationGroup>
+#include <QPropertyAnimation>
+#include <QPointer>
 #include <QPushButton>
 #include <QSettings>
 #include <QStyleOption>
@@ -67,14 +73,22 @@ QUrl BuildOnlyOfficeUrl(const QString &remote_name)
     QString config_path = QDir::toNativeSeparators(
         app_path + QDir::separator() + "config.ini");
     QSettings settings(config_path, QSettings::IniFormat);
-    QString host = settings.value("OnlyOffice/host").toString();
-    int port = settings.value("OnlyOffice/port").toInt();
-    QString path = settings.value("OnlyOffice/path").toString();
+    const QString via_gate
+        = settings.value("OnlyOffice/open_via_gate", "true").toString();
+    const bool use_gate = via_gate.compare("false", Qt::CaseInsensitive) != 0
+                          && via_gate != "0";
 
-    if (host.isEmpty()) {
+    QString host;
+    int port = 0;
+    QString path;
+    if (use_gate) {
         host = settings.value("GateServer/host").toString();
         port = settings.value("GateServer/port").toInt();
         path = QStringLiteral("/onlyoffice/editor");
+    } else {
+        host = settings.value("OnlyOffice/host").toString();
+        port = settings.value("OnlyOffice/port").toInt();
+        path = settings.value("OnlyOffice/path", "/").toString();
     }
 
     return BuildOnlyOfficeUrlFromParts(host, port, path, remote_name);
@@ -86,6 +100,56 @@ QString FormatChatTime(qint64 timestamp_secs)
         timestamp_secs = QDateTime::currentSecsSinceEpoch();
     }
     return QDateTime::fromSecsSinceEpoch(timestamp_secs).toString("hh:mm");
+}
+
+void PlayBubbleEnterAnimation(QWidget *item, QWidget *bubble)
+{
+    if (item == nullptr || bubble == nullptr) {
+        return;
+    }
+
+    const int target_height = qMax(item->sizeHint().height(), item->height());
+    const int target_width = qMax(bubble->sizeHint().width(), bubble->width());
+    item->setMaximumHeight(0);
+    bubble->setMaximumWidth(0);
+
+    auto *group = new QParallelAnimationGroup(item);
+
+    auto *height_anim = new QPropertyAnimation(item, "maximumHeight", group);
+    height_anim->setDuration(UiAnim::kBubbleHeightMs);
+    height_anim->setStartValue(0);
+    height_anim->setEndValue(target_height);
+    height_anim->setEasingCurve(QEasingCurve::OutCubic);
+    group->addAnimation(height_anim);
+
+    auto *width_anim = new QPropertyAnimation(bubble, "maximumWidth", group);
+    width_anim->setDuration(UiAnim::kBubbleWidthMs);
+    width_anim->setStartValue(0);
+    width_anim->setEndValue(target_width);
+    width_anim->setEasingCurve(QEasingCurve::OutBack);
+    group->addAnimation(width_anim);
+
+    QPointer<QWidget> guarded_item(item);
+    QPointer<QWidget> guarded_bubble(bubble);
+    QObject::connect(group, &QParallelAnimationGroup::finished, item, [guarded_item, guarded_bubble]() {
+        if (guarded_item) {
+            guarded_item->setMaximumHeight(QWIDGETSIZE_MAX);
+        }
+        if (guarded_bubble) {
+            guarded_bubble->setMaximumWidth(QWIDGETSIZE_MAX);
+        }
+    });
+    group->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void OpenOnlyOfficeViewer(QWidget *parent, const QUrl &url)
+{
+    auto *viewer = new OnlyOfficeViewerDialog(parent);
+    viewer->setAttribute(Qt::WA_DeleteOnClose);
+    viewer->loadUrl(url);
+    viewer->show();
+    viewer->raise();
+    viewer->activateWindow();
 }
 }
 
@@ -103,6 +167,8 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage) {
             &ChatPage::slot_switch_to_upload);
     connect(ui->emo_label, &ClickedLabel::clicked, this,
             &ChatPage::slot_pick_image);
+
+    ui->chatEdit->installEventFilter(this);
 }
 
 ChatPage::~ChatPage() { delete ui; }
@@ -114,12 +180,45 @@ void ChatPage::paintEvent(QPaintEvent *event) {
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
 }
 
+bool ChatPage::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == ui->chatEdit && event != nullptr) {
+        if (event->type() == QEvent::FocusIn) {
+            AnimateInputAreaHeight(240);
+        } else if (event->type() == QEvent::FocusOut) {
+            AnimateInputAreaHeight(200);
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void ChatPage::AnimateInputAreaHeight(int target_height)
+{
+    target_height = qBound(180, target_height, 280);
+    auto *anim = new QPropertyAnimation(ui->chatEdit, "maximumHeight", ui->chatEdit);
+    anim->setDuration(UiAnim::kInputFocusMs);
+    anim->setStartValue(ui->chatEdit->maximumHeight());
+    anim->setEndValue(target_height);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
 void ChatPage::SetUserInfo(std::shared_ptr<UserInfo> user_info) {
-    _user_info = user_info;
-    // 设置ui界面
+    if (!user_info) {
+        _user_info = std::make_shared<UserInfo>(0, QStringLiteral("Unknown"), QString());
+    } else {
+        _user_info = user_info;
+    }
+
+    // AI Bot 名称兜底，避免在部分链路被错误覆盖
+    if (IsBotUid(_user_info->_uid)) {
+        _user_info->_name = BOT_NAME;
+    }
+
+    // 设置 ui 界面
     ui->title_label->setText(_user_info->_name);
     ui->chat_data_list->removeAllItem();
-    for (auto &msg : user_info->_chat_msgs) {
+    for (auto &msg : _user_info->_chat_msgs) {
         AppendChatMsg(msg);
     }
 }
@@ -350,6 +449,7 @@ void ChatPage::on_send_btn_clicked() {
         if (pBubble != nullptr) {
             pChatItem->setWidget(pBubble);
             ui->chat_data_list->appendChatItem(pChatItem);
+            PlayBubbleEnterAnimation(pChatItem, pBubble);
         }
     }
     flush_text_batch();
@@ -739,6 +839,7 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
         }
         pChatItem->setWidget(pBubble);
         ui->chat_data_list->appendChatItem(pChatItem);
+        PlayBubbleEnterAnimation(pChatItem, pBubble);
     } else {
         role = ChatRole::OTHER;
         ChatItemBase *pChatItem = new ChatItemBase(role);
@@ -747,7 +848,13 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
         QString peer_name = QString::number(msg->_from_uid);
         QString peer_icon;
         int peer_uid = msg->_from_uid;
-        if (friend_info) {
+        const bool is_ai_reply = IsBotUid(msg->_from_uid);
+        if (is_ai_reply) {
+            auto bot_info = BuildBotUserInfo();
+            peer_name = bot_info->_name;
+            peer_icon = bot_info->_icon;
+            peer_uid = bot_info->_uid;
+        } else if (friend_info) {
             peer_name = friend_info->_name;
             peer_icon = friend_info->_icon;
             peer_uid = friend_info->_uid;
@@ -795,12 +902,7 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
                                     tr("GateServer 地址未配置"));
                                 return;
                             }
-                            if (!QDesktopServices::openUrl(url)) {
-                                QMessageBox::warning(
-                                    this,
-                                    tr("打开失败"),
-                                    tr("无法打开浏览器"));
-                            }
+                            OpenOnlyOfficeViewer(this, url);
                             return;
                         }
                         if (box.clickedButton() != btn_download) {
@@ -864,7 +966,10 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
                 }
             }
         } else {
-            pBubble = new TextBubble(role, msg->_msg_content);
+            const auto format = is_ai_reply
+                                ? TextBubble::ContentFormat::Markdown
+                                : TextBubble::ContentFormat::PlainText;
+            pBubble = new TextBubble(role, msg->_msg_content, format);
         }
         auto bubble_frame = qobject_cast<BubbleFrame *>(pBubble);
         if (bubble_frame) {
@@ -872,5 +977,6 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
         }
         pChatItem->setWidget(pBubble);
         ui->chat_data_list->appendChatItem(pChatItem);
+        PlayBubbleEnterAnimation(pChatItem, pBubble);
     }
 }

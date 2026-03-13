@@ -605,7 +605,7 @@ void TcpManager::slot_tcp_connect(ServerInfo si) {
 void TcpManager::slot_send_data(ReqId reqid, QString data) {
     uint16_t   id   = static_cast<uint16_t>(reqid);
     QByteArray body = data.toUtf8();
-    quint32    len  = static_cast<quint32>(data.size());
+    quint32    len  = static_cast<quint32>(body.size());
 
     QByteArray  block;
     QDataStream out(&block, QIODevice::WriteOnly);
@@ -614,5 +614,6 @@ void TcpManager::slot_send_data(ReqId reqid, QString data) {
     block.append(body);
     _socket.write(block);
     qDebug() << "send body_len =" << len << "msg_id =" << id
+             << "chars =" << data.size() << "bytes =" << body.size()
              << "body =" << body;
 }

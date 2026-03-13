@@ -1,13 +1,18 @@
 #include "login.h"
+#include "animationtiming.h"
 #include "httpmanager.h"
 #include "tcpmanager.h"
 #include "ui_login.h"
 #include <QLabel>
 #include <QLineEdit>
+#include <QPropertyAnimation>
 #include <QPushButton>
+#include <QTimer>
 
 Login::Login(QWidget *parent) : QDialog(parent), ui(new Ui::Login) {
     ui->setupUi(this);
+    ui->verticalLayout_right->setSpacing(18);
+    ui->verticalLayout_right->setContentsMargins(84, 68, 84, 68);
     initHttpHandlers();
     connect(ui->register_button, &QPushButton::clicked, this,
             &Login::switchToRegister);
@@ -45,9 +50,52 @@ Login::Login(QWidget *parent) : QDialog(parent), ui(new Ui::Login) {
             &Login::slot_tcp_connection_finish);
     connect(TcpManager::getInstance().get(), &TcpManager::sig_login_failed,
             this, &Login::slot_login_failed);
+
+    ui->user_lineEdit->installEventFilter(this);
+    ui->password_edit->installEventFilter(this);
+    QTimer::singleShot(0, this, [this]() { playRightPanelEnterAnimation(); });
 }
 
 Login::~Login() { delete ui; }
+
+bool Login::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event != nullptr && (watched == ui->user_lineEdit || watched == ui->password_edit)) {
+        if (event->type() == QEvent::FocusIn) {
+            animateInputHeight(qobject_cast<QLineEdit *>(watched), 58);
+        } else if (event->type() == QEvent::FocusOut) {
+            animateInputHeight(qobject_cast<QLineEdit *>(watched), 48);
+        }
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
+void Login::animateInputHeight(QLineEdit *edit, int target_height)
+{
+    if (edit == nullptr) {
+        return;
+    }
+    auto *anim = new QPropertyAnimation(edit, "maximumHeight", edit);
+    anim->setDuration(UiAnim::kInputFocusMs);
+    anim->setStartValue(edit->maximumHeight());
+    anim->setEndValue(target_height);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void Login::playRightPanelEnterAnimation()
+{
+    QRect end_rect = ui->auth_right_panel->geometry();
+    QRect start_rect = end_rect;
+    start_rect.moveLeft(start_rect.left() + 90);
+
+    auto *anim = new QPropertyAnimation(ui->auth_right_panel, "geometry", ui->auth_right_panel);
+    anim->setDuration(UiAnim::kPanelSlideMs);
+    anim->setStartValue(start_rect);
+    anim->setEndValue(end_rect);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
 
 void Login::showTip(QString str, bool st) {
     if (!st) {

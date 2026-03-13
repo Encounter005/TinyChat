@@ -84,7 +84,11 @@ ChatUserWidget::~ChatUserWidget() {
 }
 
 void ChatUserWidget::SetInfo(std::shared_ptr<UserInfo> user_info) {
-    _user_info = user_info;
+    if (!user_info) {
+        _user_info = std::make_shared<UserInfo>(0, QStringLiteral("Unknown"), QString());
+    } else {
+        _user_info = user_info;
+    }
     // 加载图片
     QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
         _user_info->_uid, _user_info->_icon);
@@ -99,7 +103,11 @@ void ChatUserWidget::SetInfo(std::shared_ptr<UserInfo> user_info) {
 }
 
 void ChatUserWidget::SetInfo(std::shared_ptr<FriendInfo> friend_info) {
-    _user_info = std::make_shared<UserInfo>(friend_info);
+    if (!friend_info) {
+        _user_info = std::make_shared<UserInfo>(0, QStringLiteral("Unknown"), QString());
+    } else {
+        _user_info = std::make_shared<UserInfo>(friend_info);
+    }
     // 加载图片
     QPixmap pixmap = AvatarCache::getInstance()->PixmapOrPlaceholder(
         _user_info->_uid, _user_info->_icon);

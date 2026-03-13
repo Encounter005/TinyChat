@@ -76,11 +76,6 @@ void StateWidget::ShowRedPoint(bool show)
 
 void StateWidget::paintEvent(QPaintEvent *event)
 {
-    Q_UNUSED(event);
-    QStyleOption opt;
-    opt.init(this);
-    QPainter p(this);
-    style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
     QLabel::paintEvent(event);
 }
 void StateWidget::mousePressEvent(QMouseEvent *event)

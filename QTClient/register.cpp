@@ -1,14 +1,20 @@
 #include "register.h"
+#include "animationtiming.h"
 #include "ui_register.h"
 #include "clickedlabel.h"
+#include <QPropertyAnimation>
 #include <QLineEdit>
 #include <QCryptographicHash>
+#include <QTimer>
 
 Register::Register(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::Register)
 {
     ui->setupUi(this);
+    ui->verticalLayout_right->setSpacing(18);
+    ui->verticalLayout_form->setSpacing(14);
+    ui->verticalLayout_right->setContentsMargins(84, 68, 84, 68);
     ui->pass_edit->setEchoMode(QLineEdit::Password);
     ui->confirm_edit->setEchoMode(QLineEdit::Password);
     ui->error_tips->setProperty("state", "normal");
@@ -74,7 +80,56 @@ Register::Register(QWidget *parent)
         auto str = QString("注册成功，%1 s后返回登录").arg(_countdown);
         ui->tip_lab1->setText(str);});
 
+    ui->user_edit->installEventFilter(this);
+    ui->email_edit->installEventFilter(this);
+    ui->pass_edit->installEventFilter(this);
+    ui->confirm_edit->installEventFilter(this);
+    ui->verify_edit->installEventFilter(this);
+    QTimer::singleShot(0, this, [this]() { playRightPanelEnterAnimation(); });
 
+
+}
+
+bool Register::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event != nullptr
+        && (watched == ui->user_edit || watched == ui->email_edit
+            || watched == ui->pass_edit || watched == ui->confirm_edit
+            || watched == ui->verify_edit)) {
+        if (event->type() == QEvent::FocusIn) {
+            animateInputHeight(qobject_cast<QLineEdit *>(watched), 54);
+        } else if (event->type() == QEvent::FocusOut) {
+            animateInputHeight(qobject_cast<QLineEdit *>(watched), 44);
+        }
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
+void Register::animateInputHeight(QLineEdit *edit, int target_height)
+{
+    if (edit == nullptr) {
+        return;
+    }
+    auto *anim = new QPropertyAnimation(edit, "maximumHeight", edit);
+    anim->setDuration(UiAnim::kInputFocusMs);
+    anim->setStartValue(edit->maximumHeight());
+    anim->setEndValue(target_height);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void Register::playRightPanelEnterAnimation()
+{
+    QRect end_rect = ui->auth_right_panel->geometry();
+    QRect start_rect = end_rect;
+    start_rect.moveLeft(start_rect.left() + 90);
+
+    auto *anim = new QPropertyAnimation(ui->auth_right_panel, "geometry", ui->auth_right_panel);
+    anim->setDuration(UiAnim::kPanelSlideMs);
+    anim->setStartValue(start_rect);
+    anim->setEndValue(end_rect);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 Register::~Register()
@@ -306,4 +361,3 @@ void Register::on_cancel_button_clicked()
     _countdown_timer->stop();
     emit sigSwitchLogin();
 }
-

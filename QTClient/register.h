@@ -2,6 +2,7 @@
 #define REGISTER_H
 
 #include <QDialog>
+#include <QLineEdit>
 #include "global.h"
 #include "httpmanager.h"
 #include <QRegularExpression>
@@ -17,6 +18,7 @@ class Register : public QDialog
 public:
     explicit Register(QWidget *parent = nullptr);
     ~Register();
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void showTip(QString str);
     void showTip(QString str, bool st);
     void initHttpHandlers();
@@ -41,6 +43,8 @@ private:
     bool checkEmailValid();
     bool checkPassValid();
     bool checkVarifyValid();
+    void animateInputHeight(QLineEdit *edit, int target_height);
+    void playRightPanelEnterAnimation();
     void ChangeTipPage();
     Ui::Register *ui;
     QMap<ReqId, std::function<void(const QJsonObject&)>> _handlers;

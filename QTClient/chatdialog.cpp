@@ -1,4 +1,5 @@
 #include "chatdialog.h"
+#include "animationtiming.h"
 #include "avatarcache.h"
 #include "botuser.h"
 #include "chatuserwidget.h"
@@ -16,8 +17,11 @@
 #include <QDateTime>
 #include <QGraphicsOpacityEffect>
 #include <QLineEdit>
+#include <QParallelAnimationGroup>
 #include <QPixmap>
 #include <QPropertyAnimation>
+#include <QTimer>
+#include <QVariantAnimation>
 
 ChatDialog::ChatDialog(QWidget* parent)
     : QDialog(parent)
@@ -226,6 +230,9 @@ ChatDialog::ChatDialog(QWidget* parent)
         &ChatDialog::slot_friend_info_page);
     // 设置中心部件为ChatPage
     switchStackedPageAnimated(ui->chat_page);
+    QTimer::singleShot(80, this, [this]() {
+        animateListWidgetIntro(ui->chat_user_list);
+    });
     // 连接searchlist跳转聊天信号
     connect(
         ui->search_list,
@@ -459,6 +466,15 @@ void ChatDialog::SetSelectChatPage(int uid) {
 
         // 设置信息
         auto user_info = con_item->GetUserInfo();
+        if (!user_info && IsBotUid(uid)) {
+            user_info = BuildBotUserInfo();
+        }
+        if (user_info && IsBotUid(user_info->_uid)) {
+            user_info->_name = BOT_NAME;
+            if (user_info->_icon.isEmpty()) {
+                user_info->_icon = BOT_ICON;
+            }
+        }
         ui->chat_page->SetUserInfo(user_info);
 
         return;
@@ -527,6 +543,7 @@ void ChatDialog::slot_side_chat() {
     qDebug() << "receive side chat clicked";
     ClearLabelState(ui->side_chat_label);
     switchStackedPageAnimated(ui->chat_page);
+    animateListWidgetIntro(ui->chat_user_list);
     _state = ChatUIMode::ChatMode;
     ShowSearch(false);
 }
@@ -540,6 +557,7 @@ void ChatDialog::slot_side_contact() {
     } else {
         switchStackedPageAnimated(_last_widget);
     }
+    animateListWidgetIntro(ui->con_user_list);
     _state = ChatUIMode::ContactMode;
     ShowSearch(false);
 }
@@ -701,9 +719,16 @@ void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg) {
         auto bot_info = BuildBotUserInfo();
         chat_user_wid->SetInfo(bot_info);
     } else {
-
         auto fi_ptr = UserManager::getInstance()->GetFriendById(msg->_from_uid);
-        chat_user_wid->SetInfo(fi_ptr);
+        if (fi_ptr) {
+            chat_user_wid->SetInfo(fi_ptr);
+        } else {
+            auto unknown_user = std::make_shared<UserInfo>(
+                msg->_from_uid,
+                QString::number(msg->_from_uid),
+                QString());
+            chat_user_wid->SetInfo(unknown_user);
+        }
     }
     // 查询好友信息
     if (!IsBotUid(msg->_from_uid)) {
@@ -872,6 +897,13 @@ void ChatDialog::slot_item_clicked(QListWidgetItem* item) {
 }
 
 void ChatDialog::slot_switch_chat_page(std::shared_ptr<UserInfo> user_info) {
+    if (user_info && IsBotUid(user_info->_uid)) {
+        user_info->_name = BOT_NAME;
+        if (user_info->_icon.isEmpty()) {
+            user_info->_icon = BOT_ICON;
+        }
+    }
+
     auto find_iter = _chat_items_added.find(user_info->_uid);
     if (find_iter != _chat_items_added.end()) {
         qDebug() << "jump to chat item , uid is " << user_info->_uid;
@@ -886,7 +918,11 @@ void ChatDialog::slot_switch_chat_page(std::shared_ptr<UserInfo> user_info) {
 
     // 如果没找到，则创建新的插入listwidget
     auto* chat_user_wid = new ChatUserWidget();
-    chat_user_wid->SetInfo(user_info);
+    if (user_info && IsBotUid(user_info->_uid)) {
+        chat_user_wid->SetInfo(BuildBotUserInfo());
+    } else {
+        chat_user_wid->SetInfo(user_info);
+    }
     QListWidgetItem* item = new QListWidgetItem;
     // qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
     item->setSizeHint(chat_user_wid->sizeHint());
@@ -1017,7 +1053,7 @@ void ChatDialog::switchStackedPageAnimated(QWidget* page) {
     effect->setOpacity(0.0);
 
     auto* anim = new QPropertyAnimation(effect, "opacity", page);
-    anim->setDuration(180);
+    anim->setDuration(UiAnim::kPageFadeMs);
     anim->setStartValue(0.0);
     anim->setEndValue(1.0);
     anim->setEasingCurve(QEasingCurve::OutCubic);
@@ -1029,20 +1065,76 @@ void ChatDialog::animateListItemIntro(QWidget* itemWidget) {
         return;
     }
 
+    // Slide in from right: start with extra left margin then restore.
+    constexpr int kListSlidePx = 120;
+
+    auto* root_layout = itemWidget->layout();
+    int base_left = 0;
+    int base_top = 0;
+    int base_right = 0;
+    int base_bottom = 0;
+    if (root_layout) {
+        const QMargins m = root_layout->contentsMargins();
+        base_left = m.left();
+        base_top = m.top();
+        base_right = m.right();
+        base_bottom = m.bottom();
+        root_layout->setContentsMargins(base_left + kListSlidePx, base_top, base_right, base_bottom);
+    }
+
+    auto* group = new QParallelAnimationGroup(itemWidget);
+
+    if (root_layout) {
+        auto* slide_anim = new QVariantAnimation(group);
+        slide_anim->setDuration(UiAnim::kListItemFadeMs);
+        slide_anim->setStartValue(kListSlidePx);
+        slide_anim->setEndValue(0);
+        slide_anim->setEasingCurve(QEasingCurve::OutCubic);
+        QObject::connect(slide_anim, &QVariantAnimation::valueChanged, itemWidget, [=](const QVariant& v) {
+            const int offset = v.toInt();
+            root_layout->setContentsMargins(base_left + offset, base_top, base_right, base_bottom);
+        });
+        group->addAnimation(slide_anim);
+    }
+
     auto* effect = new QGraphicsOpacityEffect(itemWidget);
     itemWidget->setGraphicsEffect(effect);
     effect->setOpacity(0.0);
 
-    auto* anim = new QPropertyAnimation(effect, "opacity", itemWidget);
-    anim->setDuration(160);
-    anim->setStartValue(0.0);
-    anim->setEndValue(1.0);
-    anim->setEasingCurve(QEasingCurve::OutCubic);
+    auto* opacity_anim = new QPropertyAnimation(effect, "opacity", group);
+    opacity_anim->setDuration(UiAnim::kListItemFadeMs);
+    opacity_anim->setStartValue(0.0);
+    opacity_anim->setEndValue(1.0);
+    opacity_anim->setEasingCurve(QEasingCurve::OutCubic);
+    group->addAnimation(opacity_anim);
+
     QObject::connect(
-        anim, &QPropertyAnimation::finished, itemWidget, [itemWidget]() {
+        group, &QParallelAnimationGroup::finished, itemWidget, [itemWidget, root_layout, base_left, base_top, base_right, base_bottom]() {
+            if (root_layout) {
+                root_layout->setContentsMargins(base_left, base_top, base_right, base_bottom);
+            }
             itemWidget->setGraphicsEffect(nullptr);
         });
-    anim->start(QAbstractAnimation::DeleteWhenStopped);
+    group->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void ChatDialog::animateListWidgetIntro(QListWidget* listWidget)
+{
+    if (listWidget == nullptr) {
+        return;
+    }
+
+    const int item_count = listWidget->count();
+    for (int i = 0; i < item_count; ++i) {
+        QListWidgetItem* item = listWidget->item(i);
+        QWidget* widget = listWidget->itemWidget(item);
+        if (widget == nullptr) {
+            continue;
+        }
+        QTimer::singleShot(i * 40, this, [this, widget]() {
+            animateListItemIntro(widget);
+        });
+    }
 }
 
 bool ChatDialog::HasBotChatItemForTest() const {

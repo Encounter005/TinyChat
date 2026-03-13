@@ -2,6 +2,7 @@
 #define RESETDIALOG_H
 
 #include <QDialog>
+#include <QLineEdit>
 #include "global.h"
 
 namespace Ui {
@@ -15,6 +16,7 @@ class ResetDialog : public QDialog
 public:
     explicit ResetDialog(QWidget *parent = nullptr);
     ~ResetDialog();
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void initHttpHandlers();
     void showTip(QString str, bool st);
 public slots:
@@ -35,6 +37,8 @@ private:
     bool checkEmailValid();
     bool checkPassValid();
     bool checkVarifyValid();
+    void animateInputHeight(QLineEdit *edit, int target_height);
+    void playRightPanelEnterAnimation();
     Ui::ResetDialog *ui;
     QMap<ReqId, std::function<void(const QJsonObject&)>> _handlers;
     QMap<TipErr, QString> _tip_errs;
