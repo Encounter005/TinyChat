@@ -2,6 +2,7 @@
 #include "controller/TestController.h"
 #include "controller/AuthController.h"
 #include "controller/UserController.h"
+#include "controller/OnlyOfficeController.h"
 
 void Router::RegisterRoutes(LogicSystem &logic) {
     TestController::Register(logic);
@@ -10,4 +11,5 @@ void Router::RegisterRoutes(LogicSystem &logic) {
     UserController::ResetPwd(logic);
     UserController::Login(logic);
     UserController::UpdateIcon(logic);
+    OnlyOfficeController::Register(logic);
 }

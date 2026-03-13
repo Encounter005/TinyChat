@@ -15,6 +15,8 @@
 using FileService::FileMeta;
 using FileService::UploadRequest;
 using FileService::UploadResponse;
+using FileService::DownloadRequest;
+using FileService::DownloadResponse;
 
 std::string FileClient::CalcMD5(const std::vector<unsigned char>& bytes) {
     unsigned char digest[MD5_DIGEST_LENGTH];
@@ -85,4 +87,40 @@ Result<void> FileClient::UploadBytes(
         return Result<void>::Error(ErrorCodes::RPC_FAILED);
     }
     return Result<void>::OK();
+}
+
+Result<std::vector<unsigned char>> FileClient::DownloadBytes(
+    const std::string& file_name) {
+    if (file_name.empty()) {
+        return Result<std::vector<unsigned char>>::Error(ErrorCodes::ERROR_JSON);
+    }
+
+    grpc::ClientContext ctx;
+    DownloadRequest req;
+    req.set_file_name(file_name);
+    req.set_start_offset(0);
+
+    auto reader = _stub->DownloadFile(&ctx, req);
+    if (!reader) {
+        return Result<std::vector<unsigned char>>::Error(ErrorCodes::RPC_FAILED);
+    }
+
+    DownloadResponse resp;
+    std::vector<unsigned char> out;
+    bool got_chunk = false;
+    while (reader->Read(&resp)) {
+        if (resp.has_chunk()) {
+            const std::string& chunk = resp.chunk();
+            if (!chunk.empty()) {
+                out.insert(out.end(), chunk.begin(), chunk.end());
+                got_chunk = true;
+            }
+        }
+    }
+
+    const grpc::Status status = reader->Finish();
+    if (!status.ok() || !got_chunk) {
+        return Result<std::vector<unsigned char>>::Error(ErrorCodes::RPC_FAILED);
+    }
+    return Result<std::vector<unsigned char>>::OK(std::move(out));
 }

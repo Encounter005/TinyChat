@@ -13,6 +13,7 @@ class FileClient : public SingleTon<FileClient> {
 
 public:
     Result<void> UploadBytes(const std::string& file_name, const std::vector<unsigned char>& bytes);
+    Result<std::vector<unsigned char>> DownloadBytes(const std::string& file_name);
 
 private:
     FileClient();
