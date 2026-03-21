@@ -16,8 +16,8 @@ class AiChatClient : public SingleTon<AiChatClient> {
 public:
     ~AiChatClient() = default;
     AiChatRsp Chat(
-        int uid, const std::string& query,
-        const std::vector<std::pair<std::string, std::string&>>& history);
+        int uid, const std::string& query, const std::string& platform,
+        const std::vector<std::pair<std::string, std::string>>& history);
 
 private:
     explicit AiChatClient();

@@ -16,6 +16,8 @@
 #include "repository/MessagePersistenceRepository.h"
 #include "repository/UserRepository.h"
 #include "service/UserService.h"
+#include <algorithm>
+#include <cctype>
 #include <json/reader.h>
 #include <json/value.h>
 #include <memory>
@@ -409,10 +411,21 @@ void LogicHandler::HandleChatTextMsg(
         return;
     }
 
-    auto              uid    = src["fromuid"].asInt();
-    auto              touid  = src["touid"].asInt();
-    const Json::Value arrays = src["text_array"];
-    const auto        now_ts = static_cast<int64_t>(std::time(nullptr));
+    auto              uid          = src["fromuid"].asInt();
+    auto              touid        = src["touid"].asInt();
+    const Json::Value arrays       = src["text_array"];
+    const auto        now_ts       = static_cast<int64_t>(std::time(nullptr));
+    std::string       bot_platform = "astrbot";
+    if (src.isMember("bot_platform") && src["bot_platform"].isString()) {
+        bot_platform = src["bot_platform"].asString();
+        std::transform(
+            bot_platform.begin(),
+            bot_platform.end(),
+            bot_platform.begin(),
+            [](unsigned char ch) {
+                return static_cast<char>(std::tolower(ch));
+            });
+    }
 
     Json::Value normalized_arrays(Json::arrayValue);
     if (arrays.isArray()) {
@@ -431,6 +444,9 @@ void LogicHandler::HandleChatTextMsg(
     root["text_array"] = normalized_arrays;
     root["fromuid"]    = uid;
     root["touid"]      = touid;
+    if (touid == BOT_UID) {
+        root["bot_platform"] = bot_platform;
+    }
 
     // Cache Messages
     auto cache_res = MessagePersistenceRepository::SaveChatMessage(
@@ -468,7 +484,8 @@ void LogicHandler::HandleChatTextMsg(
         if (query.empty()) {
             answer = "请输入文本消息后再试。";
         } else {
-            auto ai_rsp = AiChatClient::getInstance()->Chat(uid, query, {});
+            auto ai_rsp = AiChatClient::getInstance()->Chat(
+                uid, query, bot_platform, {});
             if (ai_rsp.error() == static_cast<int>(ErrorCodes::SUCCESS)
                 && !ai_rsp.answer().empty()) {
                 answer = ai_rsp.answer();

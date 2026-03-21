@@ -15,6 +15,7 @@ message AiChatReq {
     int32 uid = 1;
     string query = 2;
     repeated HistoryTurn history = 3;
+    string platform = 4;
 }
 
 message AiChatRsp {
@@ -22,4 +23,3 @@ message AiChatRsp {
     string answer = 2;
     string error_msg = 3;
 }
-

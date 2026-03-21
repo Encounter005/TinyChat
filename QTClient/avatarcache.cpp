@@ -74,6 +74,8 @@ void AvatarCache::EnsureDownloaded(int uid, const QString& iconName) {
 
 bool AvatarCache::DownloadBlocking(
     const QString& iconName, const QString& savePath, QString& err) {
+    QMutexLocker grpc_lock(&_grpc_mtx);
+
     QString appPath = QCoreApplication::applicationDirPath();
     QString cfgPath
         = QDir::toNativeSeparators(appPath + QDir::separator() + "config.ini");

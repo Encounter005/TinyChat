@@ -8,6 +8,7 @@
 #include <json/reader.h>
 #include <json/writer.h>
 #include <string>
+#include <algorithm>
 #include <vector>
 const std::string MessagePersistenceRepository::CHAT_MSG_PREFIX  = "chat:msg:";
 const std::string MessagePersistenceRepository::CHAT_META_PREFIX = "chat:meta:";
@@ -181,6 +182,25 @@ MessagePersistenceRepository::GetRecentMessagesWithCache(
     std::vector<FriendMessages> result;
     std::vector<int>            cache_miss_friends;
 
+    auto extract_ts = [](const std::string& msg_json) -> int64_t {
+        Json::Value root;
+        Json::Reader reader;
+        if (!reader.parse(msg_json, root) || !root.isObject()) {
+            return 0;
+        }
+        if (root.isMember("timestamp") && root["timestamp"].isInt64()) {
+            return root["timestamp"].asInt64();
+        }
+        if (root.isMember("text_array") && root["text_array"].isArray()
+            && root["text_array"].size() > 0) {
+            const auto& first = root["text_array"][0];
+            if (first.isMember("timestamp") && first["timestamp"].isInt64()) {
+                return first["timestamp"].asInt64();
+            }
+        }
+        return 0;
+    };
+
     // get friend_info from cache
     for (const auto& friend_info : friend_list) {
         int  friend_uid = friend_info->uid;
@@ -219,6 +239,44 @@ MessagePersistenceRepository::GetRecentMessagesWithCache(
                     CacheFriendMessages(uid, db_fm.friend_uid, db_fm.messages);
                 }
             }
+        }
+    }
+
+    // BOT 会话不在好友列表中，这里补充从 Redis 缓存读取最近消息
+    std::vector<std::string> bot_msgs;
+    auto                     bot_in_res = GetMessagesFromCache(BOT_UID, uid, limit);
+    if (bot_in_res.IsOK()) {
+        auto in_msgs = bot_in_res.Value();
+        bot_msgs.insert(bot_msgs.end(), in_msgs.begin(), in_msgs.end());
+    }
+    auto bot_out_res = GetMessagesFromCache(uid, BOT_UID, limit);
+    if (bot_out_res.IsOK()) {
+        auto out_msgs = bot_out_res.Value();
+        bot_msgs.insert(bot_msgs.end(), out_msgs.begin(), out_msgs.end());
+    }
+
+    if (!bot_msgs.empty()) {
+        std::sort(
+            bot_msgs.begin(),
+            bot_msgs.end(),
+            [&](const std::string& a, const std::string& b) {
+                return extract_ts(a) < extract_ts(b);
+            });
+
+        const size_t keep = static_cast<size_t>(std::max(limit, 1));
+        if (bot_msgs.size() > keep) {
+            bot_msgs.erase(bot_msgs.begin(), bot_msgs.end() - keep);
+        }
+
+        bool exists = false;
+        for (const auto& fm : result) {
+            if (fm.friend_uid == BOT_UID) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            result.push_back(FriendMessages{BOT_UID, bot_msgs});
         }
     }
 

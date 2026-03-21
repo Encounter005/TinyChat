@@ -5,8 +5,8 @@
 #include "qpixmap.h"
 #include "qset.h"
 #include "singleton.h"
-#include <QObject>
 #include <QMutex>
+#include <QObject>
 
 class AvatarCache : public QObject, public SingleTon<AvatarCache> {
     friend class SingleTon<AvatarCache>;
@@ -19,14 +19,17 @@ signals:
     void avatarReady(int uid, QString iconName);
     void avatarUpdated(int uid, QString iconName);
     void avatarDownloadFailed(int uid, QString iconName, QString reason);
+
 private:
     AvatarCache() = default;
-    bool DownloadBlocking(const QString& iconName, const QString& savePath, QString& err);
+    bool DownloadBlocking(
+        const QString& iconName, const QString& savePath, QString& err);
     QString DownloadKey(int uid, const QString& iconName) const;
 
 private:
     mutable QMutex _mtx;
-    QSet<QString> _downloading;
+    mutable QMutex _grpc_mtx;
+    QSet<QString>  _downloading;
 };
 
 #endif   // AVATARCACHE_H

@@ -175,6 +175,69 @@ QScrollBar::sub-page:vertical {
     background: #313244;
 }
 
+QMenu#botPlatformMenu {
+    background: #1e1e2e;
+    border: 1px solid #313244;
+    border-radius: 14px;
+    padding: 10px 8px;
+}
+
+QMenu#botPlatformMenu::separator {
+    height: 1px;
+    background: #313244;
+    margin: 8px 10px;
+}
+
+QMenu#botPlatformMenu::item {
+    background: transparent;
+    color: #cdd6f4;
+    border-radius: 10px;
+    padding: 10px 18px;
+    margin: 3px 4px;
+    min-height: 24px;
+}
+
+QMenu#botPlatformMenu::item:selected {
+    background: #313244;
+    color: #f5e0dc;
+}
+
+QMenu#botPlatformMenu::item:checked {
+    background: #45475a;
+    color: #f5e0dc;
+    font-weight: 600;
+}
+
+QMenu#botPlatformMenu::item:pressed {
+    background: #585b70;
+    color: #f5e0dc;
+}
+
+QMenu#botPlatformMenu::item:disabled {
+    color: #bac2de;
+    font-weight: 600;
+    background: #181825;
+}
+
+QMenu#botPlatformMenu::indicator {
+    width: 12px;
+    height: 12px;
+}
+
+QMenu#botPlatformMenu::indicator:checked {
+    image: none;
+    border-radius: 6px;
+    background: #a6e3a1;
+    border: 2px solid #6bbf59;
+}
+
+QMenu#botPlatformMenu::indicator:unchecked {
+    image: none;
+    border-radius: 6px;
+    background: #11111b;
+    border: 1px solid #585b70;
+}
+
 ChatUserWidget,
 ApplyFriendItem,
 #LineItem,

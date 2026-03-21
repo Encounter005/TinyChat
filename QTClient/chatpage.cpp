@@ -1,15 +1,16 @@
 #include "chatpage.h"
 #include "animationtiming.h"
-#include "chatitembase.h"
 #include "avatarcache.h"
+#include "botplatformsettings.h"
 #include "botuser.h"
+#include "chatitembase.h"
 #include "clickedlabel.h"
 #include "datapaths.h"
 #include "docpayload.h"
-#include "onlyofficeurl.h"
-#include "onlyofficeviewerdialog.h"
 #include "file.grpc.pb.h"
 #include "filebubble.h"
+#include "onlyofficeurl.h"
+#include "onlyofficeviewerdialog.h"
 #include "picturebubble.h"
 #include "qjsonarray.h"
 #include "qjsondocument.h"
@@ -18,25 +19,25 @@
 #include "ui_chatpage.h"
 #include "usermanager.h"
 
-#include <QPainter>
-#include <QDateTime>
+#include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
+#include <QEasingCurve>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
-#include <QEasingCurve>
+#include <QPainter>
 #include <QParallelAnimationGroup>
-#include <QPropertyAnimation>
 #include <QPointer>
+#include <QPropertyAnimation>
 #include <QPushButton>
 #include <QSettings>
 #include <QStyleOption>
 #include <QThread>
 #include <QUrlQuery>
 #include <QUuid>
-#include <QCoreApplication>
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
@@ -44,42 +45,46 @@
 namespace {
 const QString kImagePayloadPrefix = "[img]";
 
-QString BuildMsgId(qint64 ts)
-{
+QString BuildMsgId(qint64 ts) {
     return QString("msg_%1_%2")
         .arg(ts)
         .arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
 }
 
-QString BuildRemoteImageName(int uid, qint64 ts, const QString &local_path)
-{
-    const QString ext = QFileInfo(local_path).suffix().toLower();
+QString BuildRemoteImageName(int uid, qint64 ts, const QString &local_path) {
+    const QString ext      = QFileInfo(local_path).suffix().toLower();
     const QString safe_ext = ext.isEmpty() ? QStringLiteral("png") : ext;
-    const QString random = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    return QString("img_%1_%2_%3.%4").arg(uid).arg(ts).arg(random).arg(safe_ext);
+    const QString random   = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    return QString("img_%1_%2_%3.%4")
+        .arg(uid)
+        .arg(ts)
+        .arg(random)
+        .arg(safe_ext);
 }
 
-QString BuildRemoteFileName(int uid, qint64 ts, const QString &local_path)
-{
-    const QString ext = QFileInfo(local_path).suffix().toLower();
+QString BuildRemoteFileName(int uid, qint64 ts, const QString &local_path) {
+    const QString ext      = QFileInfo(local_path).suffix().toLower();
     const QString safe_ext = ext.isEmpty() ? QStringLiteral("bin") : ext;
-    const QString random = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    return QString("file_%1_%2_%3.%4").arg(uid).arg(ts).arg(random).arg(safe_ext);
+    const QString random   = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    return QString("file_%1_%2_%3.%4")
+        .arg(uid)
+        .arg(ts)
+        .arg(random)
+        .arg(safe_ext);
 }
 
-QUrl BuildOnlyOfficeUrl(const QString &remote_name)
-{
+QUrl BuildOnlyOfficeUrl(const QString &remote_name) {
     QString app_path = QCoreApplication::applicationDirPath();
-    QString config_path = QDir::toNativeSeparators(
-        app_path + QDir::separator() + "config.ini");
-    QSettings settings(config_path, QSettings::IniFormat);
+    QString config_path
+        = QDir::toNativeSeparators(app_path + QDir::separator() + "config.ini");
+    QSettings     settings(config_path, QSettings::IniFormat);
     const QString via_gate
         = settings.value("OnlyOffice/open_via_gate", "true").toString();
     const bool use_gate = via_gate.compare("false", Qt::CaseInsensitive) != 0
                           && via_gate != "0";
 
     QString host;
-    int port = 0;
+    int     port = 0;
     QString path;
     if (use_gate) {
         host = settings.value("GateServer/host").toString();
@@ -94,22 +99,20 @@ QUrl BuildOnlyOfficeUrl(const QString &remote_name)
     return BuildOnlyOfficeUrlFromParts(host, port, path, remote_name);
 }
 
-QString FormatChatTime(qint64 timestamp_secs)
-{
+QString FormatChatTime(qint64 timestamp_secs) {
     if (timestamp_secs <= 0) {
         timestamp_secs = QDateTime::currentSecsSinceEpoch();
     }
     return QDateTime::fromSecsSinceEpoch(timestamp_secs).toString("hh:mm");
 }
 
-void PlayBubbleEnterAnimation(QWidget *item, QWidget *bubble)
-{
+void PlayBubbleEnterAnimation(QWidget *item, QWidget *bubble) {
     if (item == nullptr || bubble == nullptr) {
         return;
     }
 
     const int target_height = qMax(item->sizeHint().height(), item->height());
-    const int target_width = qMax(bubble->sizeHint().width(), bubble->width());
+    const int target_width  = qMax(bubble->sizeHint().width(), bubble->width());
     item->setMaximumHeight(0);
     bubble->setMaximumWidth(0);
 
@@ -131,19 +134,22 @@ void PlayBubbleEnterAnimation(QWidget *item, QWidget *bubble)
 
     QPointer<QWidget> guarded_item(item);
     QPointer<QWidget> guarded_bubble(bubble);
-    QObject::connect(group, &QParallelAnimationGroup::finished, item, [guarded_item, guarded_bubble]() {
-        if (guarded_item) {
-            guarded_item->setMaximumHeight(QWIDGETSIZE_MAX);
-        }
-        if (guarded_bubble) {
-            guarded_bubble->setMaximumWidth(QWIDGETSIZE_MAX);
-        }
-    });
+    QObject::connect(
+        group,
+        &QParallelAnimationGroup::finished,
+        item,
+        [guarded_item, guarded_bubble]() {
+            if (guarded_item) {
+                guarded_item->setMaximumHeight(QWIDGETSIZE_MAX);
+            }
+            if (guarded_bubble) {
+                guarded_bubble->setMaximumWidth(QWIDGETSIZE_MAX);
+            }
+        });
     group->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void OpenOnlyOfficeViewer(QWidget *parent, const QUrl &url)
-{
+void OpenOnlyOfficeViewer(QWidget *parent, const QUrl &url) {
     auto *viewer = new OnlyOfficeViewerDialog(parent);
     viewer->setAttribute(Qt::WA_DeleteOnClose);
     viewer->loadUrl(url);
@@ -151,27 +157,35 @@ void OpenOnlyOfficeViewer(QWidget *parent, const QUrl &url)
     viewer->raise();
     viewer->activateWindow();
 }
-}
+}   // namespace
 
 ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage) {
     ui->setupUi(this);
     ui->recv_btn->SetState("normal", "hover", "press");
     ui->send_btn->SetState("normal", "hover", "press");
 
-    ui->emo_label->SetState("normal", "hover", "press", "normal", "hover",
-                            "press");
-    ui->file_label->SetState("normal", "hover", "press", "normal", "hover",
-                             "press");
+    ui->emo_label->SetState(
+        "normal", "hover", "press", "normal", "hover", "press");
+    ui->file_label->SetState(
+        "normal", "hover", "press", "normal", "hover", "press");
 
-    connect(ui->file_label, &ClickedLabel::clicked, this,
-            &ChatPage::slot_switch_to_upload);
-    connect(ui->emo_label, &ClickedLabel::clicked, this,
-            &ChatPage::slot_pick_image);
+    connect(
+        ui->file_label,
+        &ClickedLabel::clicked,
+        this,
+        &ChatPage::slot_switch_to_upload);
+    connect(
+        ui->emo_label,
+        &ClickedLabel::clicked,
+        this,
+        &ChatPage::slot_pick_image);
 
     ui->chatEdit->installEventFilter(this);
 }
 
-ChatPage::~ChatPage() { delete ui; }
+ChatPage::~ChatPage() {
+    delete ui;
+}
 
 void ChatPage::paintEvent(QPaintEvent *event) {
     QStyleOption opt;
@@ -180,8 +194,7 @@ void ChatPage::paintEvent(QPaintEvent *event) {
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
 }
 
-bool ChatPage::eventFilter(QObject *watched, QEvent *event)
-{
+bool ChatPage::eventFilter(QObject *watched, QEvent *event) {
     if (watched == ui->chatEdit && event != nullptr) {
         if (event->type() == QEvent::FocusIn) {
             AnimateInputAreaHeight(240);
@@ -192,10 +205,10 @@ bool ChatPage::eventFilter(QObject *watched, QEvent *event)
     return QWidget::eventFilter(watched, event);
 }
 
-void ChatPage::AnimateInputAreaHeight(int target_height)
-{
+void ChatPage::AnimateInputAreaHeight(int target_height) {
     target_height = qBound(180, target_height, 280);
-    auto *anim = new QPropertyAnimation(ui->chatEdit, "maximumHeight", ui->chatEdit);
+    auto *anim
+        = new QPropertyAnimation(ui->chatEdit, "maximumHeight", ui->chatEdit);
     anim->setDuration(UiAnim::kInputFocusMs);
     anim->setStartValue(ui->chatEdit->maximumHeight());
     anim->setEndValue(target_height);
@@ -205,7 +218,8 @@ void ChatPage::AnimateInputAreaHeight(int target_height)
 
 void ChatPage::SetUserInfo(std::shared_ptr<UserInfo> user_info) {
     if (!user_info) {
-        _user_info = std::make_shared<UserInfo>(0, QStringLiteral("Unknown"), QString());
+        _user_info = std::make_shared<UserInfo>(
+            0, QStringLiteral("Unknown"), QString());
     } else {
         _user_info = user_info;
     }
@@ -216,15 +230,21 @@ void ChatPage::SetUserInfo(std::shared_ptr<UserInfo> user_info) {
     }
 
     // 设置 ui 界面
-    ui->title_label->setText(_user_info->_name);
+    if (IsBotUid(_user_info->_uid)) {
+        ui->title_label->setText(QStringLiteral("%1 · %2").arg(
+            BOT_NAME,
+            BotPlatformSettings::DisplayNameForPlatform(
+                BotPlatformSettings::LoadPlatformForBot())));
+    } else {
+        ui->title_label->setText(_user_info->_name);
+    }
     ui->chat_data_list->removeAllItem();
     for (auto &msg : _user_info->_chat_msgs) {
         AppendChatMsg(msg);
     }
 }
 
-void ChatPage::on_recv_btn_clicked()
-{
+void ChatPage::on_recv_btn_clicked() {
     // 文件接收改为点击文件气泡触发，这里保留空实现
 }
 
@@ -233,54 +253,57 @@ void ChatPage::on_send_btn_clicked() {
         qDebug() << "friend_info is empty";
         return;
     }
-    auto user_info = UserManager::getInstance()->GetUserInfo();
-    auto pTextEdit = ui->chatEdit;
-    ChatRole role = ChatRole::SELF;
-    QString userName = user_info->_name;
+    auto     user_info              = UserManager::getInstance()->GetUserInfo();
+    auto     pTextEdit              = ui->chatEdit;
+    ChatRole role                   = ChatRole::SELF;
+    QString  userName               = user_info->_name;
     const QVector<MsgInfo> &msgList = pTextEdit->getMsgList();
-    QJsonObject textObj;
-    QJsonArray textArray;
-    int txt_size = 0;
+    QJsonObject             textObj;
+    QJsonArray              textArray;
+    int                     txt_size = 0;
 
     auto flush_text_batch = [&]() {
         if (textArray.isEmpty()) {
             return;
         }
         textObj["text_array"] = textArray;
-        textObj["fromuid"] = user_info->_uid;
-        textObj["touid"] = _user_info->_uid;
-        QJsonDocument doc(textObj);
-        QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
-        emit TcpManager::getInstance()->sig_send_data(ReqId::ID_TEXT_CHAT_MSG_REQ, jsonData);
-        txt_size = 0;
-        textArray = QJsonArray();
-        textObj = QJsonObject();
-    };
-
-    auto append_text_to_batch = [&](const QString &content, const QString &msg_id, qint64 ts) {
-        QJsonObject obj;
-        obj["content"] = content;
-        obj["msgid"] = msg_id;
-        obj["timestamp"] = ts;
-        textArray.append(obj);
-
-        auto txt_msg = std::make_shared<TextChatData>(
-            msg_id,
-            content,
-            user_info->_uid,
-            _user_info->_uid,
-            ts);
-        emit sig_append_send_chat_msg(txt_msg);
-    };
-
-    auto cache_local_image = [](const QString &src, const QString &remote_name) {
-        const QString target_path = DataPaths::ImagesDir() + QDir::separator() + remote_name;
-        if (QFile::exists(target_path)) {
-            return;
+        textObj["fromuid"]    = user_info->_uid;
+        textObj["touid"]      = _user_info->_uid;
+        if (IsBotUid(_user_info->_uid)) {
+            textObj["bot_platform"] = BotPlatformSettings::LoadPlatformForBot();
         }
-        QDir().mkpath(QFileInfo(target_path).absolutePath());
-        QFile::copy(src, target_path);
+        QJsonDocument doc(textObj);
+        QByteArray    jsonData = doc.toJson(QJsonDocument::Compact);
+        emit          TcpManager::getInstance()
+            -> sig_send_data(ReqId::ID_TEXT_CHAT_MSG_REQ, jsonData);
+        txt_size  = 0;
+        textArray = QJsonArray();
+        textObj   = QJsonObject();
     };
+
+    auto append_text_to_batch
+        = [&](const QString &content, const QString &msg_id, qint64 ts) {
+              QJsonObject obj;
+              obj["content"]   = content;
+              obj["msgid"]     = msg_id;
+              obj["timestamp"] = ts;
+              textArray.append(obj);
+
+              auto txt_msg = std::make_shared<TextChatData>(
+                  msg_id, content, user_info->_uid, _user_info->_uid, ts);
+              emit sig_append_send_chat_msg(txt_msg);
+          };
+
+    auto cache_local_image
+        = [](const QString &src, const QString &remote_name) {
+              const QString target_path
+                  = DataPaths::ImagesDir() + QDir::separator() + remote_name;
+              if (QFile::exists(target_path)) {
+                  return;
+              }
+              QDir().mkpath(QFileInfo(target_path).absolutePath());
+              QFile::copy(src, target_path);
+          };
     for (int i = 0; i < msgList.size(); ++i) {
         // 消息内容长度不合规就跳过
         if (msgList[i].content.length() <= 0) {
@@ -292,17 +315,18 @@ void ChatPage::on_send_btn_clicked() {
         if (msgList[i].content.length() > 1024) {
             continue;
         }
-        QString type = msgList[i].msgFlag;
+        QString       type      = msgList[i].msgFlag;
         ChatItemBase *pChatItem = new ChatItemBase(role);
         pChatItem->setUserName(userName);
-        pChatItem->setUserIcon(AvatarCache::getInstance()->PixmapOrPlaceholder(
-            user_info->_uid, user_info->_icon));
+        pChatItem->setUserIcon(
+            AvatarCache::getInstance()->PixmapOrPlaceholder(
+                user_info->_uid, user_info->_icon));
         QWidget *pBubble = nullptr;
         if (type == "text") {
-            qint64 msg_ts = QDateTime::currentSecsSinceEpoch();
+            qint64  msg_ts     = QDateTime::currentSecsSinceEpoch();
             QString uuidString = BuildMsgId(msg_ts);
-            pBubble = new TextBubble(role, msgList[i].content);
-            auto bubble_frame = qobject_cast<BubbleFrame *>(pBubble);
+            pBubble            = new TextBubble(role, msgList[i].content);
+            auto bubble_frame  = qobject_cast<BubbleFrame *>(pBubble);
             if (bubble_frame) {
                 bubble_frame->setTimeText(FormatChatTime(msg_ts));
             }
@@ -311,22 +335,24 @@ void ChatPage::on_send_btn_clicked() {
             }
             txt_size += msgList[i].content.length();
             QByteArray utf8Message = msgList[i].content.toUtf8();
-            append_text_to_batch(QString::fromUtf8(utf8Message), uuidString, msg_ts);
+            append_text_to_batch(
+                QString::fromUtf8(utf8Message), uuidString, msg_ts);
         } else if (type == "image") {
             flush_text_batch();
-            const qint64 msg_ts = QDateTime::currentSecsSinceEpoch();
-            const QString msg_id = BuildMsgId(msg_ts);
+            const qint64  msg_ts     = QDateTime::currentSecsSinceEpoch();
+            const QString msg_id     = BuildMsgId(msg_ts);
             const QString local_path = msgList[i].content;
             pBubble = new PictureBubble(QPixmap(msgList[i].content), role);
             auto picture_bubble = qobject_cast<PictureBubble *>(pBubble);
-            auto bubble_frame = qobject_cast<BubbleFrame *>(picture_bubble);
+            auto bubble_frame   = qobject_cast<BubbleFrame *>(picture_bubble);
             if (bubble_frame) {
                 bubble_frame->setTimeText(FormatChatTime(msg_ts));
             }
             if (picture_bubble) {
                 picture_bubble->setUploadProgress(0);
             }
-            const QString remote_name = BuildRemoteImageName(user_info->_uid, msg_ts, local_path);
+            const QString remote_name
+                = BuildRemoteImageName(user_info->_uid, msg_ts, local_path);
             _image_msgid_to_remote[msg_id] = remote_name;
             if (picture_bubble) {
                 UploadImageAsync(
@@ -341,21 +367,25 @@ void ChatPage::on_send_btn_clicked() {
                             picture_bubble->setUploadDone();
                         }
                         const QString payload = BuildImagePayload(remote_name);
-                        QJsonObject single_text_obj;
-                        QJsonArray single_text_array;
-                        QJsonObject msg_obj;
-                        msg_obj["content"] = payload;
-                        msg_obj["msgid"] = msg_id;
+                        QJsonObject   single_text_obj;
+                        QJsonArray    single_text_array;
+                        QJsonObject   msg_obj;
+                        msg_obj["content"]   = payload;
+                        msg_obj["msgid"]     = msg_id;
                         msg_obj["timestamp"] = msg_ts;
                         single_text_array.append(msg_obj);
                         single_text_obj["text_array"] = single_text_array;
-                        single_text_obj["fromuid"] = user_info->_uid;
-                        single_text_obj["touid"] = _user_info->_uid;
+                        single_text_obj["fromuid"]    = user_info->_uid;
+                        single_text_obj["touid"]      = _user_info->_uid;
+                        if (IsBotUid(_user_info->_uid)) {
+                            single_text_obj["bot_platform"]
+                                = BotPlatformSettings::LoadPlatformForBot();
+                        }
                         QJsonDocument doc(single_text_obj);
-                        QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
-                        emit TcpManager::getInstance()->sig_send_data(
-                            ReqId::ID_TEXT_CHAT_MSG_REQ,
-                            jsonData);
+                        QByteArray    jsonData
+                            = doc.toJson(QJsonDocument::Compact);
+                        emit TcpManager::getInstance() -> sig_send_data(
+                            ReqId::ID_TEXT_CHAT_MSG_REQ, jsonData);
                         auto image_msg = std::make_shared<TextChatData>(
                             msg_id,
                             payload,
@@ -372,13 +402,13 @@ void ChatPage::on_send_btn_clicked() {
             }
         } else if (type == "file") {
             flush_text_batch();
-            const qint64 msg_ts = QDateTime::currentSecsSinceEpoch();
-            const QString msg_id = BuildMsgId(msg_ts);
-            const QString local_path = msgList[i].content;
+            const qint64    msg_ts     = QDateTime::currentSecsSinceEpoch();
+            const QString   msg_id     = BuildMsgId(msg_ts);
+            const QString   local_path = msgList[i].content;
             const QFileInfo fi(local_path);
-            const QString display_name = fi.fileName();
-            const qint64 file_size = fi.size();
-            const QString remote_name
+            const QString   display_name = fi.fileName();
+            const qint64    file_size    = fi.size();
+            const QString   remote_name
                 = BuildRemoteFileName(user_info->_uid, msg_ts, local_path);
             const bool is_doc = IsOfficeDocument(local_path);
 
@@ -388,7 +418,7 @@ void ChatPage::on_send_btn_clicked() {
             if (is_doc) {
                 file_bubble->setIconPath(":/img/document.png");
             }
-            pBubble = file_bubble;
+            pBubble           = file_bubble;
             auto bubble_frame = qobject_cast<BubbleFrame *>(file_bubble);
             if (bubble_frame) {
                 bubble_frame->setTimeText(FormatChatTime(msg_ts));
@@ -403,8 +433,9 @@ void ChatPage::on_send_btn_clicked() {
                     }
                 },
                 [=]() {
-                    const QString target_path
-                        = DataPaths::FilesDir() + QDir::separator() + remote_name;
+                    const QString target_path = DataPaths::FilesDir()
+                                                + QDir::separator()
+                                                + remote_name;
                     if (!QFile::exists(target_path)) {
                         QDir().mkpath(QFileInfo(target_path).absolutePath());
                         QFile::copy(local_path, target_path);
@@ -413,20 +444,23 @@ void ChatPage::on_send_btn_clicked() {
                     const QString payload = BuildFilePayload(
                         remote_name, display_name, file_size, is_doc);
                     QJsonObject one_obj;
-                    QJsonArray one_arr;
+                    QJsonArray  one_arr;
                     QJsonObject m;
-                    m["content"] = payload;
-                    m["msgid"] = msg_id;
+                    m["content"]   = payload;
+                    m["msgid"]     = msg_id;
                     m["timestamp"] = msg_ts;
                     one_arr.append(m);
                     one_obj["text_array"] = one_arr;
-                    one_obj["fromuid"] = user_info->_uid;
-                    one_obj["touid"] = _user_info->_uid;
+                    one_obj["fromuid"]    = user_info->_uid;
+                    one_obj["touid"]      = _user_info->_uid;
+                    if (IsBotUid(_user_info->_uid)) {
+                        one_obj["bot_platform"]
+                            = BotPlatformSettings::LoadPlatformForBot();
+                    }
                     QJsonDocument doc(one_obj);
-                    QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
-                    emit TcpManager::getInstance()->sig_send_data(
-                        ReqId::ID_TEXT_CHAT_MSG_REQ,
-                        jsonData);
+                    QByteArray    jsonData = doc.toJson(QJsonDocument::Compact);
+                    emit          TcpManager::getInstance()
+                        -> sig_send_data(ReqId::ID_TEXT_CHAT_MSG_REQ, jsonData);
 
                     auto file_msg = std::make_shared<TextChatData>(
                         msg_id,
@@ -460,7 +494,8 @@ void ChatPage::slot_switch_to_upload() {
         this,
         tr("选择文件"),
         QString(),
-        tr("All Files (*.*);;Documents (*.doc *.docx *.xls *.xlsx *.ppt *.pptx)"));
+        tr("All Files (*.*);;Documents (*.doc *.docx *.xls *.xlsx *.ppt "
+           "*.pptx)"));
     if (files.isEmpty()) {
         return;
     }
@@ -468,8 +503,7 @@ void ChatPage::slot_switch_to_upload() {
     ui->chatEdit->setFocus();
 }
 
-void ChatPage::slot_pick_image()
-{
+void ChatPage::slot_pick_image() {
     const QString file_name = QFileDialog::getOpenFileName(
         this,
         tr("选择图片"),
@@ -482,13 +516,11 @@ void ChatPage::slot_pick_image()
     ui->chatEdit->setFocus();
 }
 
-QString ChatPage::BuildImagePayload(const QString &remote_name)
-{
+QString ChatPage::BuildImagePayload(const QString &remote_name) {
     return kImagePayloadPrefix + remote_name;
 }
 
-bool ChatPage::IsImagePayload(const QString &content, QString *remote_name)
-{
+bool ChatPage::IsImagePayload(const QString &content, QString *remote_name) {
     if (!content.startsWith(kImagePayloadPrefix)) {
         return false;
     }
@@ -500,39 +532,50 @@ bool ChatPage::IsImagePayload(const QString &content, QString *remote_name)
 
 
 void ChatPage::UploadFileAsync(
-    const QString &local_path,
-    const QString &remote_name,
-    const std::function<void(int)> &on_progress,
-    const std::function<void()> &on_success,
-    const std::function<void(const QString &)> &on_error)
-{
-    auto* t = QThread::create([=]() {
-        QString app_path = QCoreApplication::applicationDirPath();
-        QString config_path
-            = QDir::toNativeSeparators(app_path + QDir::separator() + "config.ini");
+    const QString &local_path, const QString &remote_name,
+    const std::function<void(int)>             &on_progress,
+    const std::function<void()>                &on_success,
+    const std::function<void(const QString &)> &on_error) {
+    auto *t = QThread::create([=]() {
+        QString app_path    = QCoreApplication::applicationDirPath();
+        QString config_path = QDir::toNativeSeparators(
+            app_path + QDir::separator() + "config.ini");
         QSettings settings(config_path, QSettings::IniFormat);
-        QString host = settings.value("FileServer/host").toString();
-        QString port = settings.value("FileServer/port").toString();
+        QString   host = settings.value("FileServer/host").toString();
+        QString   port = settings.value("FileServer/port").toString();
         if (host.isEmpty() || port.isEmpty()) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("invalid fileserver host/port")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() {
+                    on_error(QStringLiteral("invalid fileserver host/port"));
+                },
+                Qt::QueuedConnection);
             return;
         }
 
         QFile file(local_path);
         if (!file.open(QIODevice::ReadOnly)) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("open local file failed")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() { on_error(QStringLiteral("open local file failed")); },
+                Qt::QueuedConnection);
             return;
         }
 
         QFileInfo file_info(local_path);
-        qint64 file_size = file_info.size();
+        qint64    file_size = file_info.size();
         if (file_size <= 0) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("file is empty")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() { on_error(QStringLiteral("file is empty")); },
+                Qt::QueuedConnection);
             return;
         }
 
         const QByteArray all_data = file.readAll();
-        const QString md5 = QString(QCryptographicHash::hash(all_data, QCryptographicHash::Md5).toHex());
+        const QString    md5      = QString(
+            QCryptographicHash::hash(all_data, QCryptographicHash::Md5)
+                .toHex());
         file.seek(0);
 
         auto channel = grpc::CreateChannel(
@@ -540,26 +583,34 @@ void ChatPage::UploadFileAsync(
             grpc::InsecureChannelCredentials());
         auto stub = FileService::FileTransport::NewStub(channel);
 
-        grpc::ClientContext ctx;
+        grpc::ClientContext         ctx;
         FileService::UploadResponse response;
-        auto writer = stub->UploadFile(&ctx, &response);
+        auto                        writer = stub->UploadFile(&ctx, &response);
         if (!writer) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("create grpc writer failed")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() {
+                    on_error(QStringLiteral("create grpc writer failed"));
+                },
+                Qt::QueuedConnection);
             return;
         }
 
         FileService::UploadRequest meta_req;
-        FileService::FileMeta* meta = meta_req.mutable_meta();
+        FileService::FileMeta     *meta = meta_req.mutable_meta();
         meta->set_file_name(remote_name.toStdString());
         meta->set_total_size(file_size);
         meta->set_file_md5(md5.toStdString());
         if (!writer->Write(meta_req)) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("send meta failed")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() { on_error(QStringLiteral("send meta failed")); },
+                Qt::QueuedConnection);
             return;
         }
 
         const qint64 chunk_size = 2 * 1024 * 1024;
-        QByteArray buffer;
+        QByteArray   buffer;
         buffer.resize(static_cast<int>(chunk_size));
         qint64 sent = 0;
         while (!file.atEnd()) {
@@ -570,71 +621,80 @@ void ChatPage::UploadFileAsync(
             FileService::UploadRequest chunk_req;
             chunk_req.set_chunk(buffer.constData(), static_cast<size_t>(n));
             if (!writer->Write(chunk_req)) {
-                QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("send chunk failed")); }, Qt::QueuedConnection);
+                QMetaObject::invokeMethod(
+                    this,
+                    [=]() { on_error(QStringLiteral("send chunk failed")); },
+                    Qt::QueuedConnection);
                 return;
             }
             sent += n;
             const int progress = static_cast<int>((sent * 100) / file_size);
-            QMetaObject::invokeMethod(this, [=]() { on_progress(progress); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this, [=]() { on_progress(progress); }, Qt::QueuedConnection);
         }
 
         writer->WritesDone();
         grpc::Status status = writer->Finish();
         if (!status.ok() || !response.success()) {
-            const QString err = status.ok()
-                                    ? QString::fromStdString(response.message())
-                                    : QString::fromStdString(status.error_message());
-            QMetaObject::invokeMethod(this, [=]() { on_error(err); }, Qt::QueuedConnection);
+            const QString err
+                = status.ok() ? QString::fromStdString(response.message())
+                              : QString::fromStdString(status.error_message());
+            QMetaObject::invokeMethod(
+                this, [=]() { on_error(err); }, Qt::QueuedConnection);
             return;
         }
 
-        QMetaObject::invokeMethod(this, [=]() {
-            on_progress(100);
-            on_success();
-        }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            this,
+            [=]() {
+                on_progress(100);
+                on_success();
+            },
+            Qt::QueuedConnection);
     });
     connect(t, &QThread::finished, t, &QObject::deleteLater);
     t->start();
 }
 
 void ChatPage::UploadImageAsync(
-    const QString &local_path,
-    const QString &remote_name,
-    const std::function<void(int)> &on_progress,
-    const std::function<void()> &on_success,
-    const std::function<void(const QString &)> &on_error)
-{
+    const QString &local_path, const QString &remote_name,
+    const std::function<void(int)>             &on_progress,
+    const std::function<void()>                &on_success,
+    const std::function<void(const QString &)> &on_error) {
     UploadFileAsync(local_path, remote_name, on_progress, on_success, on_error);
 }
 
 void ChatPage::DownloadFileAsync(
-    const QString &remote_name,
-    const QString &save_path,
-    const std::function<void(int)> &on_progress,
-    const std::function<void()> &on_success,
-    const std::function<void(const QString &)> &on_error)
-{
+    const QString &remote_name, const QString &save_path,
+    const std::function<void(int)>             &on_progress,
+    const std::function<void()>                &on_success,
+    const std::function<void(const QString &)> &on_error) {
     if (QFile::exists(save_path)) {
         on_success();
         return;
     }
 
-    auto* t = QThread::create([=]() {
-        QString app_path = QCoreApplication::applicationDirPath();
-        QString config_path
-            = QDir::toNativeSeparators(app_path + QDir::separator() + "config.ini");
+    auto *t = QThread::create([=]() {
+        QString app_path    = QCoreApplication::applicationDirPath();
+        QString config_path = QDir::toNativeSeparators(
+            app_path + QDir::separator() + "config.ini");
         QSettings settings(config_path, QSettings::IniFormat);
-        QString host = settings.value("FileServer/host").toString();
-        QString port = settings.value("FileServer/port").toString();
+        QString   host = settings.value("FileServer/host").toString();
+        QString   port = settings.value("FileServer/port").toString();
         if (host.isEmpty() || port.isEmpty()) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("invalid fileserver host/port")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() {
+                    on_error(QStringLiteral("invalid fileserver host/port"));
+                },
+                Qt::QueuedConnection);
             return;
         }
 
         auto channel = grpc::CreateChannel(
             (host + ":" + port).toStdString(),
             grpc::InsecureChannelCredentials());
-        auto stub = FileService::FileTransport::NewStub(channel);
+        auto                stub = FileService::FileTransport::NewStub(channel);
         grpc::ClientContext ctx;
         FileService::DownloadRequest req;
         req.set_file_name(remote_name.toStdString());
@@ -644,14 +704,17 @@ void ChatPage::DownloadFileAsync(
         QDir().mkpath(QFileInfo(save_path).absolutePath());
         QFile out(save_path);
         if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("open save file failed")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() { on_error(QStringLiteral("open save file failed")); },
+                Qt::QueuedConnection);
             return;
         }
 
         FileService::DownloadResponse resp;
-        bool got_data = false;
-        qint64 total = 0;
-        qint64 received = 0;
+        bool                          got_data = false;
+        qint64                        total    = 0;
+        qint64                        received = 0;
         while (reader->Read(&resp)) {
             if (resp.has_meta()) {
                 total = resp.meta().total_size();
@@ -663,8 +726,12 @@ void ChatPage::DownloadFileAsync(
                     got_data = true;
                     received += static_cast<qint64>(chunk.size());
                     if (total > 0) {
-                        const int progress = static_cast<int>((received * 100) / total);
-                        QMetaObject::invokeMethod(this, [=]() { on_progress(progress); }, Qt::QueuedConnection);
+                        const int progress
+                            = static_cast<int>((received * 100) / total);
+                        QMetaObject::invokeMethod(
+                            this,
+                            [=]() { on_progress(progress); },
+                            Qt::QueuedConnection);
                     }
                 }
             }
@@ -674,27 +741,31 @@ void ChatPage::DownloadFileAsync(
         grpc::Status status = reader->Finish();
         if (!status.ok() || !got_data) {
             QFile::remove(save_path);
-            const QString err = status.ok()
-                                    ? QStringLiteral("empty file stream")
-                                    : QString::fromStdString(status.error_message());
-            QMetaObject::invokeMethod(this, [=]() { on_error(err); }, Qt::QueuedConnection);
+            const QString err
+                = status.ok() ? QStringLiteral("empty file stream")
+                              : QString::fromStdString(status.error_message());
+            QMetaObject::invokeMethod(
+                this, [=]() { on_error(err); }, Qt::QueuedConnection);
             return;
         }
-        QMetaObject::invokeMethod(this, [=]() {
-            on_progress(100);
-            on_success();
-        }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            this,
+            [=]() {
+                on_progress(100);
+                on_success();
+            },
+            Qt::QueuedConnection);
     });
     connect(t, &QThread::finished, t, &QObject::deleteLater);
     t->start();
 }
 
 void ChatPage::DownloadImageAsync(
-    const QString &remote_name,
+    const QString                              &remote_name,
     const std::function<void(const QPixmap &)> &on_success,
-    const std::function<void(const QString &)> &on_error)
-{
-    const QString save_path = DataPaths::ImagesDir() + QDir::separator() + remote_name;
+    const std::function<void(const QString &)> &on_error) {
+    const QString save_path
+        = DataPaths::ImagesDir() + QDir::separator() + remote_name;
     if (QFile::exists(save_path)) {
         QPixmap pix(save_path);
         if (!pix.isNull()) {
@@ -703,22 +774,27 @@ void ChatPage::DownloadImageAsync(
         }
     }
 
-    auto* t = QThread::create([=]() {
-        QString app_path = QCoreApplication::applicationDirPath();
-        QString config_path
-            = QDir::toNativeSeparators(app_path + QDir::separator() + "config.ini");
+    auto *t = QThread::create([=]() {
+        QString app_path    = QCoreApplication::applicationDirPath();
+        QString config_path = QDir::toNativeSeparators(
+            app_path + QDir::separator() + "config.ini");
         QSettings settings(config_path, QSettings::IniFormat);
-        QString host = settings.value("FileServer/host").toString();
-        QString port = settings.value("FileServer/port").toString();
+        QString   host = settings.value("FileServer/host").toString();
+        QString   port = settings.value("FileServer/port").toString();
         if (host.isEmpty() || port.isEmpty()) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("invalid fileserver host/port")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() {
+                    on_error(QStringLiteral("invalid fileserver host/port"));
+                },
+                Qt::QueuedConnection);
             return;
         }
 
         auto channel = grpc::CreateChannel(
             (host + ":" + port).toStdString(),
             grpc::InsecureChannelCredentials());
-        auto stub = FileService::FileTransport::NewStub(channel);
+        auto                stub = FileService::FileTransport::NewStub(channel);
         grpc::ClientContext ctx;
         FileService::DownloadRequest req;
         req.set_file_name(remote_name.toStdString());
@@ -728,12 +804,15 @@ void ChatPage::DownloadImageAsync(
         QDir().mkpath(QFileInfo(save_path).absolutePath());
         QFile out(save_path);
         if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("open save image failed")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() { on_error(QStringLiteral("open save image failed")); },
+                Qt::QueuedConnection);
             return;
         }
 
         FileService::DownloadResponse resp;
-        bool got_data = false;
+        bool                          got_data = false;
         while (reader->Read(&resp)) {
             if (resp.has_chunk()) {
                 const std::string chunk = resp.chunk();
@@ -748,46 +827,49 @@ void ChatPage::DownloadImageAsync(
         grpc::Status status = reader->Finish();
         if (!status.ok() || !got_data) {
             QFile::remove(save_path);
-            const QString err = status.ok()
-                                    ? QStringLiteral("empty image stream")
-                                    : QString::fromStdString(status.error_message());
-            QMetaObject::invokeMethod(this, [=]() { on_error(err); }, Qt::QueuedConnection);
+            const QString err
+                = status.ok() ? QStringLiteral("empty image stream")
+                              : QString::fromStdString(status.error_message());
+            QMetaObject::invokeMethod(
+                this, [=]() { on_error(err); }, Qt::QueuedConnection);
             return;
         }
 
         QPixmap pix(save_path);
         if (pix.isNull()) {
-            QMetaObject::invokeMethod(this, [=]() { on_error(QStringLiteral("load image failed")); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(
+                this,
+                [=]() { on_error(QStringLiteral("load image failed")); },
+                Qt::QueuedConnection);
             return;
         }
-        QMetaObject::invokeMethod(this, [=]() { on_success(pix); }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            this, [=]() { on_success(pix); }, Qt::QueuedConnection);
     });
     connect(t, &QThread::finished, t, &QObject::deleteLater);
     t->start();
 }
 
 void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
-    auto self_info = UserManager::getInstance()->GetUserInfo();
-    ChatRole role;
-    QString image_remote_name;
-    QString file_remote_name;
-    QString file_display_name;
-    qint64  file_size = 0;
+    auto       self_info = UserManager::getInstance()->GetUserInfo();
+    ChatRole   role;
+    QString    image_remote_name;
+    QString    file_remote_name;
+    QString    file_display_name;
+    qint64     file_size = 0;
     const bool is_image = IsImagePayload(msg->_msg_content, &image_remote_name);
     FilePayloadInfo file_info;
-    const bool is_file = ParseFilePayload(msg->_msg_content, &file_info);
-    const bool is_doc = is_file
-                        && (file_info.is_doc
-                            || IsOfficeDocument(file_info.display_name));
+    const bool      is_file = ParseFilePayload(msg->_msg_content, &file_info);
+    const bool      is_doc
+        = is_file
+          && (file_info.is_doc || IsOfficeDocument(file_info.display_name));
     if (is_file) {
-        file_remote_name = file_info.remote_name;
+        file_remote_name  = file_info.remote_name;
         file_display_name = file_info.display_name;
-        file_size = file_info.size;
+        file_size         = file_info.size;
         qDebug() << "[chat-page] file payload parsed"
-                 << "msg_id=" << msg->_msg_id
-                 << "remote=" << file_remote_name
-                 << "name=" << file_display_name
-                 << "size=" << file_size
+                 << "msg_id=" << msg->_msg_id << "remote=" << file_remote_name
+                 << "name=" << file_display_name << "size=" << file_size
                  << "is_doc=" << is_doc;
     } else if (msg->_msg_content.startsWith("[file]")) {
         qDebug() << "[chat-page] file payload parse failed"
@@ -796,12 +878,13 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
     }
     // todo... 添加聊天显示
     if (msg->_from_uid == self_info->_uid) {
-        role = ChatRole::SELF;
+        role                    = ChatRole::SELF;
         ChatItemBase *pChatItem = new ChatItemBase(role);
 
         pChatItem->setUserName(self_info->_name);
-        pChatItem->setUserIcon(AvatarCache::getInstance()->PixmapOrPlaceholder(
-            self_info->_uid, self_info->_icon));
+        pChatItem->setUserIcon(
+            AvatarCache::getInstance()->PixmapOrPlaceholder(
+                self_info->_uid, self_info->_icon));
         QWidget *pBubble = nullptr;
         if (is_file) {
             auto *file_bubble = new FileBubble(file_display_name, role);
@@ -812,12 +895,13 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
             }
             pBubble = file_bubble;
         } else if (is_image) {
-            const QString local_image = DataPaths::ImagesDir() + QDir::separator() + image_remote_name;
-            QPixmap pix(local_image);
+            const QString local_image = DataPaths::ImagesDir()
+                                        + QDir::separator() + image_remote_name;
+            QPixmap       pix(local_image);
             if (pix.isNull()) {
                 pix = QPixmap(msg->_msg_content);
             }
-            pBubble = new PictureBubble(pix, role);
+            pBubble             = new PictureBubble(pix, role);
             auto picture_bubble = qobject_cast<PictureBubble *>(pBubble);
             if (picture_bubble) {
                 picture_bubble->setUploadDone();
@@ -841,27 +925,28 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
         ui->chat_data_list->appendChatItem(pChatItem);
         PlayBubbleEnterAnimation(pChatItem, pBubble);
     } else {
-        role = ChatRole::OTHER;
+        role                    = ChatRole::OTHER;
         ChatItemBase *pChatItem = new ChatItemBase(role);
-        auto friend_info
+        auto          friend_info
             = UserManager::getInstance()->GetFriendById(msg->_from_uid);
-        QString peer_name = QString::number(msg->_from_uid);
-        QString peer_icon;
-        int peer_uid = msg->_from_uid;
+        QString    peer_name = QString::number(msg->_from_uid);
+        QString    peer_icon;
+        int        peer_uid    = msg->_from_uid;
         const bool is_ai_reply = IsBotUid(msg->_from_uid);
         if (is_ai_reply) {
             auto bot_info = BuildBotUserInfo();
-            peer_name = bot_info->_name;
-            peer_icon = bot_info->_icon;
-            peer_uid = bot_info->_uid;
+            peer_name     = bot_info->_name;
+            peer_icon     = bot_info->_icon;
+            peer_uid      = bot_info->_uid;
         } else if (friend_info) {
             peer_name = friend_info->_name;
             peer_icon = friend_info->_icon;
-            peer_uid = friend_info->_uid;
+            peer_uid  = friend_info->_uid;
         }
         pChatItem->setUserName(peer_name);
-        pChatItem->setUserIcon(AvatarCache::getInstance()->PixmapOrPlaceholder(
-            peer_uid, peer_icon));
+        pChatItem->setUserIcon(
+            AvatarCache::getInstance()->PixmapOrPlaceholder(
+                peer_uid, peer_icon));
         QWidget *pBubble = nullptr;
         if (is_file) {
             auto *file_bubble = new FileBubble(file_display_name, role);
@@ -870,10 +955,10 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
             if (is_doc) {
                 file_bubble->setIconPath(":/img/document.png");
             }
-            const QString msg_id = msg->_msg_id;
+            const QString msg_id          = msg->_msg_id;
             _pending_file_bubbles[msg_id] = file_bubble;
-            _pending_file_remote[msg_id] = file_remote_name;
-            _pending_file_name[msg_id] = file_display_name;
+            _pending_file_remote[msg_id]  = file_remote_name;
+            _pending_file_name[msg_id]    = file_display_name;
             connect(
                 file_bubble,
                 &FileBubble::sig_clicked,
@@ -886,15 +971,16 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
                         QMessageBox box(this);
                         box.setWindowTitle(tr("文档操作"));
                         box.setText(tr("请选择操作"));
-                        QPushButton *btn_edit
-                            = box.addButton(tr("在线编辑"), QMessageBox::AcceptRole);
-                        QPushButton *btn_download
-                            = box.addButton(tr("下载"), QMessageBox::DestructiveRole);
+                        QPushButton *btn_edit = box.addButton(
+                            tr("在线编辑"), QMessageBox::AcceptRole);
+                        QPushButton *btn_download = box.addButton(
+                            tr("下载"), QMessageBox::DestructiveRole);
                         box.addButton(tr("取消"), QMessageBox::RejectRole);
                         box.exec();
 
                         if (box.clickedButton() == btn_edit) {
-                            const QUrl url = BuildOnlyOfficeUrl(file_info.remote_name);
+                            const QUrl url
+                                = BuildOnlyOfficeUrl(file_info.remote_name);
                             if (url.host().isEmpty()) {
                                 QMessageBox::warning(
                                     this,
@@ -919,8 +1005,9 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
                             return;
                         }
                     }
-                    const QString save_path
-                        = DataPaths::FilesDir() + QDir::separator() + file_info.remote_name;
+                    const QString save_path = DataPaths::FilesDir()
+                                              + QDir::separator()
+                                              + file_info.remote_name;
                     file_bubble->setTransferProgress(0);
                     DownloadFileAsync(
                         file_info.remote_name,
@@ -944,15 +1031,15 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
                                 file_bubble->setTransferFailed();
                             }
                             qDebug() << "[chat-page] file download failed"
-                                     << "msg_id=" << msg_id
-                                     << "error=" << err;
+                                     << "msg_id=" << msg_id << "error=" << err;
                         });
                 });
             pBubble = file_bubble;
         } else if (is_image) {
-            const QString local_image = DataPaths::ImagesDir() + QDir::separator() + image_remote_name;
-            QPixmap pix(local_image);
-            pBubble = new PictureBubble(pix, role);
+            const QString local_image = DataPaths::ImagesDir()
+                                        + QDir::separator() + image_remote_name;
+            QPixmap       pix(local_image);
+            pBubble             = new PictureBubble(pix, role);
             auto picture_bubble = qobject_cast<PictureBubble *>(pBubble);
             if (picture_bubble) {
                 picture_bubble->setUploadDone();
@@ -967,9 +1054,9 @@ void ChatPage::AppendChatMsg(std::shared_ptr<TextChatData> msg) {
             }
         } else {
             const auto format = is_ai_reply
-                                ? TextBubble::ContentFormat::Markdown
-                                : TextBubble::ContentFormat::PlainText;
-            pBubble = new TextBubble(role, msg->_msg_content, format);
+                                    ? TextBubble::ContentFormat::Markdown
+                                    : TextBubble::ContentFormat::PlainText;
+            pBubble           = new TextBubble(role, msg->_msg_content, format);
         }
         auto bubble_frame = qobject_cast<BubbleFrame *>(pBubble);
         if (bubble_frame) {

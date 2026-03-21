@@ -1,6 +1,7 @@
 #include "chatdialog.h"
 #include "animationtiming.h"
 #include "avatarcache.h"
+#include "botplatformsettings.h"
 #include "botuser.h"
 #include "chatuserwidget.h"
 #include "contactuseritem.h"
@@ -17,10 +18,12 @@
 #include <QDateTime>
 #include <QGraphicsOpacityEffect>
 #include <QLineEdit>
+#include <QMenu>
 #include <QParallelAnimationGroup>
 #include <QPixmap>
 #include <QPropertyAnimation>
 #include <QTimer>
+#include <QToolTip>
 #include <QVariantAnimation>
 
 ChatDialog::ChatDialog(QWidget* parent)
@@ -230,9 +233,8 @@ ChatDialog::ChatDialog(QWidget* parent)
         &ChatDialog::slot_friend_info_page);
     // 设置中心部件为ChatPage
     switchStackedPageAnimated(ui->chat_page);
-    QTimer::singleShot(80, this, [this]() {
-        animateListWidgetIntro(ui->chat_user_list);
-    });
+    QTimer::singleShot(
+        80, this, [this]() { animateListWidgetIntro(ui->chat_user_list); });
     // 连接searchlist跳转聊天信号
     connect(
         ui->search_list,
@@ -247,6 +249,12 @@ ChatDialog::ChatDialog(QWidget* parent)
         &QListWidget::itemClicked,
         this,
         &ChatDialog::slot_item_clicked);
+    ui->chat_user_list->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(
+        ui->chat_user_list,
+        &QWidget::customContextMenuRequested,
+        this,
+        &ChatDialog::showChatListContextMenu);
     // 连接对端通知
     connect(
         TcpManager::getInstance().get(),
@@ -724,9 +732,7 @@ void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg) {
             chat_user_wid->SetInfo(fi_ptr);
         } else {
             auto unknown_user = std::make_shared<UserInfo>(
-                msg->_from_uid,
-                QString::number(msg->_from_uid),
-                QString());
+                msg->_from_uid, QString::number(msg->_from_uid), QString());
             chat_user_wid->SetInfo(unknown_user);
         }
     }
@@ -984,6 +990,78 @@ void ChatDialog::handleGlobalMousePress(QMouseEvent* event) {
     }
 }
 
+void ChatDialog::showChatListContextMenu(const QPoint& pos) {
+    QListWidgetItem* item = ui->chat_user_list->itemAt(pos);
+    if (!item) {
+        return;
+    }
+
+    auto* widget
+        = qobject_cast<ChatUserWidget*>(ui->chat_user_list->itemWidget(item));
+    if (!widget) {
+        return;
+    }
+
+    const auto user_info = widget->GetUserInfo();
+    if (!user_info || !IsBotUid(user_info->_uid)) {
+        return;
+    }
+
+    QMenu    menu(this);
+    menu.setObjectName("botPlatformMenu");
+    menu.setCursor(Qt::PointingHandCursor);
+    QAction* title = menu.addAction(tr("接入平台"));
+    title->setEnabled(false);
+    menu.addSeparator();
+
+    const QString current_platform = BotPlatformSettings::LoadPlatformForBot();
+    const QStringList platforms    = BotPlatformSettings::AvailablePlatforms();
+    for (const QString& platform : platforms) {
+        QAction* action = menu.addAction(
+            BotPlatformSettings::DisplayNameForPlatform(platform));
+        action->setCheckable(true);
+        action->setChecked(platform == current_platform);
+        connect(action, &QAction::triggered, this, [this, platform]() {
+            BotPlatformSettings::SavePlatformForBot(platform);
+            refreshBotPlatformUi();
+            QToolTip::showText(
+                QCursor::pos(),
+                tr("已切换到 %1")
+                    .arg(BotPlatformSettings::DisplayNameForPlatform(platform)),
+                ui->chat_user_list);
+        });
+    }
+
+    menu.exec(ui->chat_user_list->viewport()->mapToGlobal(pos));
+}
+
+void ChatDialog::refreshBotPlatformUi() {
+    auto find_iter = _chat_items_added.find(BOT_UID);
+    if (find_iter != _chat_items_added.end()) {
+        auto* chat_user_wid = qobject_cast<ChatUserWidget*>(
+            ui->chat_user_list->itemWidget(find_iter.value()));
+        if (chat_user_wid) {
+            auto bot_info = chat_user_wid->GetUserInfo();
+            if (!bot_info) {
+                bot_info = BuildBotUserInfo();
+            }
+            bot_info->_name = BOT_NAME;
+            chat_user_wid->SetInfo(bot_info);
+        }
+    }
+
+    if (_cur_chat_uid == BOT_UID) {
+        auto find_current = _chat_items_added.find(BOT_UID);
+        if (find_current != _chat_items_added.end()) {
+            auto* chat_user_wid = qobject_cast<ChatUserWidget*>(
+                ui->chat_user_list->itemWidget(find_current.value()));
+            if (chat_user_wid) {
+                ui->chat_page->SetUserInfo(chat_user_wid->GetUserInfo());
+            }
+        }
+    }
+}
+
 void ChatDialog::loadMoreConUser() {
     auto friend_list = UserManager::getInstance()->GetConListPerPage();
     if (friend_list.empty() == false) {
@@ -1069,17 +1147,18 @@ void ChatDialog::animateListItemIntro(QWidget* itemWidget) {
     constexpr int kListSlidePx = 120;
 
     auto* root_layout = itemWidget->layout();
-    int base_left = 0;
-    int base_top = 0;
-    int base_right = 0;
-    int base_bottom = 0;
+    int   base_left   = 0;
+    int   base_top    = 0;
+    int   base_right  = 0;
+    int   base_bottom = 0;
     if (root_layout) {
         const QMargins m = root_layout->contentsMargins();
-        base_left = m.left();
-        base_top = m.top();
-        base_right = m.right();
-        base_bottom = m.bottom();
-        root_layout->setContentsMargins(base_left + kListSlidePx, base_top, base_right, base_bottom);
+        base_left        = m.left();
+        base_top         = m.top();
+        base_right       = m.right();
+        base_bottom      = m.bottom();
+        root_layout->setContentsMargins(
+            base_left + kListSlidePx, base_top, base_right, base_bottom);
     }
 
     auto* group = new QParallelAnimationGroup(itemWidget);
@@ -1090,10 +1169,15 @@ void ChatDialog::animateListItemIntro(QWidget* itemWidget) {
         slide_anim->setStartValue(kListSlidePx);
         slide_anim->setEndValue(0);
         slide_anim->setEasingCurve(QEasingCurve::OutCubic);
-        QObject::connect(slide_anim, &QVariantAnimation::valueChanged, itemWidget, [=](const QVariant& v) {
-            const int offset = v.toInt();
-            root_layout->setContentsMargins(base_left + offset, base_top, base_right, base_bottom);
-        });
+        QObject::connect(
+            slide_anim,
+            &QVariantAnimation::valueChanged,
+            itemWidget,
+            [=](const QVariant& v) {
+                const int offset = v.toInt();
+                root_layout->setContentsMargins(
+                    base_left + offset, base_top, base_right, base_bottom);
+            });
         group->addAnimation(slide_anim);
     }
 
@@ -1109,31 +1193,38 @@ void ChatDialog::animateListItemIntro(QWidget* itemWidget) {
     group->addAnimation(opacity_anim);
 
     QObject::connect(
-        group, &QParallelAnimationGroup::finished, itemWidget, [itemWidget, root_layout, base_left, base_top, base_right, base_bottom]() {
+        group,
+        &QParallelAnimationGroup::finished,
+        itemWidget,
+        [itemWidget,
+         root_layout,
+         base_left,
+         base_top,
+         base_right,
+         base_bottom]() {
             if (root_layout) {
-                root_layout->setContentsMargins(base_left, base_top, base_right, base_bottom);
+                root_layout->setContentsMargins(
+                    base_left, base_top, base_right, base_bottom);
             }
             itemWidget->setGraphicsEffect(nullptr);
         });
     group->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void ChatDialog::animateListWidgetIntro(QListWidget* listWidget)
-{
+void ChatDialog::animateListWidgetIntro(QListWidget* listWidget) {
     if (listWidget == nullptr) {
         return;
     }
 
     const int item_count = listWidget->count();
     for (int i = 0; i < item_count; ++i) {
-        QListWidgetItem* item = listWidget->item(i);
-        QWidget* widget = listWidget->itemWidget(item);
+        QListWidgetItem* item   = listWidget->item(i);
+        QWidget*         widget = listWidget->itemWidget(item);
         if (widget == nullptr) {
             continue;
         }
-        QTimer::singleShot(i * 40, this, [this, widget]() {
-            animateListItemIntro(widget);
-        });
+        QTimer::singleShot(
+            i * 40, this, [this, widget]() { animateListItemIntro(widget); });
     }
 }
 
