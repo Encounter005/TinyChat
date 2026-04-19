@@ -15,8 +15,10 @@ SOURCES += \
     applyfriendpage.cpp \
     authenfriend.cpp \
     avatarcache.cpp \
+    botplatformsettings.cpp \
     botuser.cpp \
     bubbleframe.cpp \
+    chat_time.cpp \
     chatdialog.cpp \
     chatitembase.cpp \
     chatpage.cpp \
@@ -74,8 +76,10 @@ HEADERS += \
     applyfriendpage.h \
     authenfriend.h \
     avatarcache.h \
+    botplatformsettings.h \
     botuser.h \
     bubbleframe.h \
+    chat_time.h \
     chatdialog.h \
     chatitembase.h \
     chatpage.h \

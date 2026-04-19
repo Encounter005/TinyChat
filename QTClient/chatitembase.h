@@ -1,14 +1,13 @@
 #ifndef CHATITEMBASE_H
 #define CHATITEMBASE_H
 
-#include <QWidget>
+#include "global.h"
 #include <QGridLayout>
 #include <QLabel>
-#include "global.h"
+#include <QWidget>
 class BubbleFrame;
 
-class ChatItemBase : public QWidget
-{
+class ChatItemBase : public QWidget {
     Q_OBJECT
 public:
     explicit ChatItemBase(ChatRole role, QWidget *parent = nullptr);
@@ -17,11 +16,15 @@ public:
     void setWidget(QWidget *w);
 
 private:
+    void syncBubbleTimeLabel(BubbleFrame *bubble_frame);
+
     ChatRole m_role;
-    QLabel *m_pNameLabel;
-    QLabel *m_pIconLabel;
+    QLabel  *m_pNameLabel;
+    QLabel  *m_pIconLabel;
     QWidget *m_pBubble;
+    QLabel  *m_pTimeLabel;
+    QWidget *m_pBubbleContent;
 };
 
 
-#endif // CHATITEMBASE_H
+#endif   // CHATITEMBASE_H

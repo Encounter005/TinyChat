@@ -310,7 +310,7 @@
          <string/>
         </property>
         <property name="icon">
-         <iconset theme="QIcon::ThemeIcon::UserAvailable"/>
+         <iconset theme="QIcon::ThemeIco::UserAvailable"/>
         </property>
        </widget>
       </item>

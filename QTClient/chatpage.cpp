@@ -3,6 +3,7 @@
 #include "avatarcache.h"
 #include "botplatformsettings.h"
 #include "botuser.h"
+#include "chat_time.h"
 #include "chatitembase.h"
 #include "clickedlabel.h"
 #include "datapaths.h"
@@ -21,7 +22,6 @@
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
-#include <QDateTime>
 #include <QDir>
 #include <QEasingCurve>
 #include <QFile>
@@ -100,10 +100,7 @@ QUrl BuildOnlyOfficeUrl(const QString &remote_name) {
 }
 
 QString FormatChatTime(qint64 timestamp_secs) {
-    if (timestamp_secs <= 0) {
-        timestamp_secs = QDateTime::currentSecsSinceEpoch();
-    }
-    return QDateTime::fromSecsSinceEpoch(timestamp_secs).toString("hh:mm");
+    return FormatChatTimeText(timestamp_secs);
 }
 
 void PlayBubbleEnterAnimation(QWidget *item, QWidget *bubble) {
