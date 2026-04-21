@@ -95,6 +95,29 @@ std::string generateUUID() {
     return boost::uuids::to_string(uuid);
 }
 
+std::string formatBytes(int64 bytes);
+
+void printUploadStatusResponse(
+    const std::string& fileMd5, const UploadStatus& status) {
+    std::cout << "[i] QueryUploadStatus response" << std::endl;
+    std::cout << "    File MD5: " << fileMd5 << std::endl;
+    std::cout << "    Has breakpoint: "
+              << (status.has_breakpoint() ? "true" : "false") << std::endl;
+    std::cout << "    Resume offset: " << status.resume_offset() << " ("
+              << formatBytes(status.resume_offset()) << ")" << std::endl;
+    std::cout << "    Last update time: " << status.last_update_time()
+              << std::endl;
+    std::cout << "    Uploaded chunks: " << status.uploaded_chunks_size()
+              << std::endl;
+
+    for (int i = 0; i < status.uploaded_chunks_size(); ++i) {
+        const ChunkInfo& chunk = status.uploaded_chunks(i);
+        std::cout << "    - Chunk " << chunk.chunk_index()
+                  << ": offset=" << chunk.chunk_offset()
+                  << ", md5=" << chunk.chunk_md5() << std::endl;
+    }
+}
+
 // 格式化字节大小
 std::string formatBytes(int64 bytes) {
     const char* units[]   = {"B", "KB", "MB", "GB"};
@@ -133,6 +156,8 @@ public:
                       << rpcStatus.error_message() << std::endl;
             return false;
         }
+
+        printUploadStatusResponse(fileMd5, status);
 
         return true;
     }

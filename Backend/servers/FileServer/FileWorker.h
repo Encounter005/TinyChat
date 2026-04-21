@@ -18,6 +18,7 @@ private:
     struct FileBuffer {
         std::unique_ptr<std::ofstream> file;
         std::string                    buffer;
+        std::string                    checkpoint_buffer;
         std::size_t                    total_written = 0;
         std::string                    file_md5;      // 新增：文件MD5
         std::string                    file_name;     // 新增：文件名

@@ -70,6 +70,8 @@ public:
     static Result<int64_t> VerifyUploadBlocks(
         const std::string& file_md5, int64_t reported_offset,
         int block_size = DEFAULT_BLOCK_SIZE);
+    static int64_t CompletedBlockCountToOffsetBytes(
+        int64_t completed_block_count, int block_size);
 
     static Result<void> DeleteBlockCheckpoints(const std::string& file_md5);
     static Result<int>  CountCompletedBlocks(

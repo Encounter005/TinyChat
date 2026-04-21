@@ -700,7 +700,17 @@ Result<int64_t> FileRepository::VerifyUploadBlocks(
         file_md5,
         reported_offset);
 
-    return Result<int64_t>::OK(completed_count);
+    return Result<int64_t>::OK(
+        CompletedBlockCountToOffsetBytes(completed_count, block_size));
+}
+
+int64_t FileRepository::CompletedBlockCountToOffsetBytes(
+    int64_t completed_block_count, int block_size) {
+    if (completed_block_count <= 0 || block_size <= 0) {
+        return 0;
+    }
+
+    return completed_block_count * static_cast<int64_t>(block_size);
 }
 
 Result<void> FileRepository::DeleteBlockCheckpoints(

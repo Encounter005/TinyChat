@@ -107,6 +107,7 @@ void FileWorker::run() {
             if (it != _file_buffers.end() && task.data) {
                 auto& file_buf = it->second;
                 file_buf.buffer.append(*(task.data));
+                file_buf.checkpoint_buffer.append(*(task.data));
 
                 // 超过阈值就刷新缓冲区
                 if (file_buf.buffer.size() >= BUFFER_THRESHOLD) {
@@ -125,7 +126,8 @@ void FileWorker::run() {
                         = file_buf.total_written / RESUME_CHUNK_SIZE - 1;
 
                     // 计算分块MD5
-                    std::string chunk_md5 = CalculateMD5(file_buf.buffer);
+                    std::string chunk_md5
+                        = CalculateMD5(file_buf.checkpoint_buffer);
 
                     // 保存分块校验和
                     auto result = FileRepository::SaveBlockCheckpoint(
@@ -145,8 +147,8 @@ void FileWorker::run() {
                     FileRepository::UpdateUploadProgress(
                         file_buf.file_md5, file_buf.total_written);
 
-                    // 清空缓冲区
-                    file_buf.buffer.clear();
+                    // 清空校验缓冲区，继续累计下一块
+                    file_buf.checkpoint_buffer.clear();
                 }
             } else {
                 LOG_ERROR(

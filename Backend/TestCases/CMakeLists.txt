@@ -67,6 +67,21 @@ target_link_libraries(Test_db
         ${_GRPC_GRPCPP}
 )
 
+# ============================================================================
+# Upload Resume Offset Regression Test
+# ============================================================================
+message(STATUS "[Target]      Test_upload_resume_offset (resume offset regression)")
+add_executable(Test_upload_resume_offset test_upload_resume_offset.cpp)
+
+target_link_libraries(Test_upload_resume_offset
+    PRIVATE
+        backend_core
+        ${HIREDIS_LIBRARIES}
+        ${Boost_LIBRARIES}
+        ${JSONCPP_LIBRARIES}
+        ${_GRPC_GRPCPP}
+)
+
 
 # ============================================================================
 # Build Information
@@ -83,5 +98,9 @@ message(STATUS "")
 message(STATUS "  Executable:         DownloadClient")
 message(STATUS "  Description:       File download client with resumable download support")
 message(STATUS "  Linked Libraries:   backend_core, Hiredis, Boost, JSONCpp, gRPC, OpenSSL")
+message(STATUS "")
+message(STATUS "  Executable:         Test_upload_resume_offset")
+message(STATUS "  Description:       Regression test for resumable upload offset semantics")
+message(STATUS "  Linked Libraries:   backend_core, Hiredis, Boost, JSONCpp, gRPC")
 message(STATUS "=========================================================================")
 message(STATUS "")
